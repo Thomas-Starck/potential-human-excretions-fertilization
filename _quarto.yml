@@ -1,0 +1,29 @@
+project:
+  type: website
+  output-dir: docs
+  
+website:
+  title: ""
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - text: "Present and prepare FAOSTAT data"
+        href: FAO.qmd
+      - text: "Results: Potential of humand excretions used as fertilizers"
+        href: potential.qmd
+    right:
+      - icon: github
+
+format:
+  html:
+    theme: 
+      light: flatly
+      dark: darkly
+    css: styles.css
+    toc: true
+    code-fold: true
+    toc_float: true
+
+
+

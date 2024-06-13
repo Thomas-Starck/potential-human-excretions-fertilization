@@ -1,0 +1,2029 @@
+---
+title: "FAO data"
+---
+
+This prepares and presents FAO data, that we use to estimate the current potential of excretions used as fertilizers for different countries in the current food system.
+
+```{r setup, include=T, message=F, warning=F}
+knitr::opts_chunk$set(message=F, warning=F, fig.align = "center",  dev='svg')
+
+# Load the function file
+source("functions.R")
+#included:
+#-function to save csv f_save_csv_files
+#-set the default scale_color and scale_fill to viridis theme
+#-loads the core tidyverse package
+
+#set theme for graphs
+theme_set(
+  theme_classic() +
+  theme(
+    panel.grid.major.y = element_line(), #no vertical lines by default
+    #text = element_text(family = "Times New Roman"), #default font
+    plot.title = element_text(face="bold"), #graphs titles in bolds
+    )
+  )
+
+#additional packages loaded
+library(cowplot) #for multiple plots plot_grid
+library(crosstalk) #for interactive selection of graphs
+library(plotly) #for interactive graphs
+
+Source <- "Source:"
+
+#to convert P2O5 and K2O fertilizers to P and K
+conversion_P2O5_P <- 2*31/(31*2+16*5)
+conversion_K2O_K <- 2*39/(2*39+16)
+
+#to convert protein supply to N
+conversion_N_protein <- 6.25
+
+
+#function to clean Turkey and Côte d'Ivoire names not rendered by encoding
+f_correct_encoding <- function(dataset){
+  dataset <- dataset %>%
+    mutate(
+      Area = case_when(
+        Area=="T\374rkiye"  ~ "Turkey",
+        Area=="C\364te d'Ivoire"   ~ "Cote d'Ivoire",
+        T~ Area
+      )
+    )
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Manure
+
+Data downloaded on FAOSTAT webpage Inputs -> [Livestock manure](https://www.fao.org/faostat/en/#data/EMN){target="_blank"}. We load and prepare the data.
+
+```{r prepare_manure}
+#load original file
+file_manure <- read.csv("source/FAO/manure/Environment_LivestockManure_E_All_Data/Environment_LivestockManure_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct Turjey and Cote d'Ivoire encoding
+file_manure <- f_correct_encoding(file_manure)
+
+#transform and prepare data
+data_manure_countries <- file_manure %>%
+  filter(
+    `Area Code` < 5000 #keep only countries and not regions (Africa, World, Central Asia...)
+    )
+
+data_manure_world <- file_manure %>%
+  filter(
+    `Area Code` == 5000 #world code
+    )
+
+f_prepare_manure <- function(dataset){
+
+  data <- dataset %>%
+    select(
+      country = Area, species = Item, variable = Element, Unit, Y1961:Y2021
+    ) %>%
+    #years in 1 column
+    gather(
+      Year, value, Y1961:Y2021
+    ) %>%
+    mutate(
+      #gather units in variable name
+      variable = paste0(variable, " (", Unit, ")"),
+      #transform years in integers
+      Year = as.integer(sub("^Y", "", Year))
+    ) %>%
+    #remove units columns
+    select(
+      -Unit
+    ) %>%
+    #change names reported in kg to kt (or millions for animals)
+    mutate(
+      variable = str_replace_all(
+        variable,
+        c("\\(N content\\) \\(kg\\)" = "(ktN)",
+          "\\(An\\)" = "(millions)",
+          "\\(manure treated, N content\\) \\(kg\\)" = "(treated) (ktN)"
+          )
+        )
+      ) %>%
+    #change the numerical vallues accordingly
+    mutate(
+      value = value/10^6
+      )
+
+  return(data)
+
+}
+data_manure_countries <- f_prepare_manure(data_manure_countries)
+data_manure_world <- f_prepare_manure(data_manure_world)
+```
+
+::: panel-tabset
+
+## understand manure categories
+
+```{r function_graph_manure_categories}
+f_graph_manure_comparison <- function(
+    dataset, country_selected,
+    variable_total, variable_subcategories,
+    species_selected
+    ){
+
+  temp <- dataset %>%
+    filter(
+      country==country_selected,
+      species%in%species_selected
+      )
+
+  gg <- ggplot() +
+    #subcategories in areas filled in different colors
+    geom_area(
+      data = temp %>% filter(variable %in% variable_subcategories),
+      aes(Year, value, fill=variable),
+      alpha=.6
+      ) +
+    #total catogery in line
+    geom_line(
+      data = temp %>% filter(variable == variable_total),
+      aes(Year, value, color=variable),
+      linewidth=1
+      ) +
+    #line total cateogry in black
+    scale_color_manual(
+      values="black"
+      ) +
+    #spacing every 1000s on y axis
+    scale_y_continuous(
+      labels = scales::label_number(drop0trailing = TRUE)
+      ) +
+    #labels
+    labs(
+      color="", x="", y="ktN",
+      fill="subgroups",
+      title = country_selected,
+      caption = "Source: FAOSTAT\ncomputation by Thomas Starck"
+    )
+
+  return(gg)
+
+}
+```
+
+::: panel-tabset
+### excreted
+
+amount excreted in manure = left on pasture + management (treated). This is generally true but there are some exceptions, like in India, probably because of free animals that do not excrete on pastures (on roads for instance).
+
+::: panel-tabset
+#### World
+
+```{r manure_excreted_categories_world}
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  c("Manure management (treated) (ktN)",
+    "Manure left on pasture (ktN)"),
+  "All Animals"
+  )
+```
+
+#### France
+
+```{r manure_excreted_categories_France}
+f_graph_manure_comparison(
+  data_manure_countries, "France",
+  "Amount excreted in manure (ktN)",
+  c("Manure management (treated) (ktN)",
+    "Manure left on pasture (ktN)"),
+  "All Animals"
+  )
+```
+
+#### China
+
+```{r manure_excreted_categories_China}
+f_graph_manure_comparison(
+  data_manure_countries, "China",
+  "Amount excreted in manure (ktN)",
+  c("Manure management (treated) (ktN)",
+    "Manure left on pasture (ktN)"),
+  "All Animals"
+  )
+```
+
+#### USA
+
+```{r manure_excreted_categories_USA}
+f_graph_manure_comparison(
+  data_manure_countries, "United States of America",
+  "Amount excreted in manure (ktN)",
+  c("Manure management (treated) (ktN)",
+    "Manure left on pasture (ktN)"),
+  "All Animals"
+  )
+```
+
+#### India
+
+```{r manure_excreted_categories_India}
+f_graph_manure_comparison(
+  data_manure_countries, "India",
+  "Amount excreted in manure (ktN)",
+  c("Manure management (treated) (ktN)",
+    "Manure left on pasture (ktN)"),
+  "All Animals"
+  )
+```
+
+:::
+
+### left on pasture
+
+left on pasture = left on pasture that leaches + left on pasture that volatilises + not reported. To have subcategories that match the total left on pasture, we compute the "Manure left on pasture not lost".
+
+::: panel-tabset
+#### reported categories
+
+```{r manure_left_on_pasture_categories_reported}
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Manure left on pasture (ktN)",
+  c("Manure left on pasture that leaches (ktN)",
+    "Manure left on pasture that volatilises (ktN)"),
+  "All Animals"
+  )
+```
+
+#### additional computed "no lost"
+
+```{r manure_left_on_pasture_categories_completed}
+f_compute_difference_manure_pasture <- function(dataset){
+  dataset <- dataset %>%
+    spread(variable, value) %>%
+    mutate(
+      `Manure left on pasture not lost (ktN)` =
+        `Manure left on pasture (ktN)` -
+        `Manure left on pasture that leaches (ktN)` -
+        `Manure left on pasture that volatilises (ktN)`
+      ) %>%
+    gather(
+      variable, value, -c(country, species, Year)
+      )
+  return(dataset)
+}
+data_manure_countries <- f_compute_difference_manure_pasture(data_manure_countries)
+data_manure_world <- f_compute_difference_manure_pasture(data_manure_world)
+
+
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Manure left on pasture (ktN)",
+  c("Manure left on pasture that leaches (ktN)",
+    "Manure left on pasture that volatilises (ktN)",
+    "Manure left on pasture not lost (ktN)"),
+  "All Animals"
+  )
+```
+
+:::
+
+### management (treated)
+
+management (treated) ~ applied to soils + losses from manure treated. There are only small discrepancies in some countries (e.g. France).
+
+::: panel-tabset
+#### World
+
+```{r manure_management_categories_world}
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Manure management (treated) (ktN)",
+  c("Losses from manure treated (ktN)",
+    "Manure applied to soils (ktN)"),
+  "All Animals"
+  )
+```
+
+#### France
+
+```{r manure_management_categories_France}
+f_graph_manure_comparison(
+  data_manure_countries, "France",
+  "Manure management (treated) (ktN)",
+  c("Losses from manure treated (ktN)",
+    "Manure applied to soils (ktN)"),
+  "All Animals"
+  )
+```
+
+#### China
+
+```{r manure_management_categories_China}
+f_graph_manure_comparison(
+  data_manure_countries, "China",
+  "Manure management (treated) (ktN)",
+  c("Losses from manure treated (ktN)",
+    "Manure applied to soils (ktN)"),
+  "All Animals"
+  )
+```
+
+#### USA
+
+```{r manure_management_categories_USA}
+f_graph_manure_comparison(
+  data_manure_countries, "United States of America",
+  "Manure management (treated) (ktN)",
+  c("Losses from manure treated (ktN)",
+    "Manure applied to soils (ktN)"),
+  "All Animals"
+  )
+```
+
+#### India
+
+```{r manure_management_categories_India}
+f_graph_manure_comparison(
+  data_manure_countries, "India",
+  "Manure management (treated) (ktN)",
+  c("Losses from manure treated (ktN)",
+    "Manure applied to soils (ktN)"),
+  "All Animals"
+  )
+```
+
+
+:::
+
+### applied to soils
+
+applied to soils = applied to soils that leaches + applied to soils that volatilises +  not reported. To have subcategories that match the total applied to soils, we compute the "Manure applied to soils not lost".
+
+::: panel-tabset
+#### reported categories
+
+```{r manure_applied_soils_categories_reported}
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Manure applied to soils (ktN)",
+  c("Manure applied to soils that leaches (ktN)",
+    "Manure applied to soils that volatilises (ktN)"),
+  "All Animals"
+  )
+```
+
+
+#### additional computed "not lost"
+
+```{r manure_applied_soils_categories_computed}
+f_compute_difference_manure_soils <- function(dataset){
+  dataset <- dataset %>%
+    spread(variable, value) %>%
+    mutate(
+      `Manure applied to soils not lost (ktN)` =
+        `Manure applied to soils (ktN)` -
+        `Manure applied to soils that leaches (ktN)` -
+        `Manure applied to soils that volatilises (ktN)`
+      ) %>%
+    gather(
+      variable, value, -c(country, species, Year)
+      )
+  return(dataset)
+}
+data_manure_countries <- f_compute_difference_manure_soils(data_manure_countries)
+data_manure_world <- f_compute_difference_manure_soils(data_manure_world)
+
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Manure applied to soils (ktN)",
+  c("Manure applied to soils that leaches (ktN)",
+    "Manure applied to soils that volatilises (ktN)",
+    "Manure applied to soils not lost (ktN)"),
+  "All Animals"
+  )
+```
+:::
+
+### summary
+
+Here is the grand total with all the subcategories, including our computed "not lost" on soils and pasture.
+
+```{r}
+all_manure_categories <- c(
+  "Manure left on pasture not lost (ktN)",
+  "Manure left on pasture that leaches (ktN)",
+  "Manure left on pasture that volatilises (ktN)",
+  "Manure applied to soils not lost (ktN)",
+  "Manure applied to soils that leaches (ktN)",
+  "Manure applied to soils that volatilises (ktN)",
+  "Losses from manure treated (ktN)")
+```
+
+::: panel-tabset
+#### World
+
+```{r manure_all_categories_world}
+f_graph_manure_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  all_manure_categories,
+  "All Animals"
+  )
+```
+
+#### France
+
+```{r manure_all_categories_France}
+f_graph_manure_comparison(
+  data_manure_countries, "France",
+  "Amount excreted in manure (ktN)",
+  all_manure_categories,
+  "All Animals"
+  )
+```
+
+#### China
+
+```{r manure_all_categories_China}
+f_graph_manure_comparison(
+  data_manure_countries, "China",
+  "Amount excreted in manure (ktN)",
+  all_manure_categories,
+  "All Animals"
+  )
+```
+
+#### USA
+
+```{r manure_all_categories_USA}
+f_graph_manure_comparison(
+  data_manure_countries, "United States of America",
+  "Amount excreted in manure (ktN)",
+  all_manure_categories,
+  "All Animals"
+  )
+```
+
+#### India
+
+```{r manure_all_categories_India}
+f_graph_manure_comparison(
+  data_manure_countries, "India",
+  "Amount excreted in manure (ktN)",
+  all_manure_categories,
+  "All Animals"
+  )
+```
+
+
+:::
+
+:::
+
+## understand livestock species
+
+```{r function_graph_livestock_comparison}
+#function for graph livestock subcategories comparison
+f_graph_livestock_comparison <- function(
+    dataset, country_selected,
+    variable_selected,
+    species_total, species_subcategories
+    ){
+
+  temp <- dataset %>%
+    filter(
+      country==country_selected,
+      variable==variable_selected
+      )
+
+  gg <- ggplot() +
+    #subcategories in areas filled in different colors
+    geom_area(
+      data = temp %>% filter(species %in% species_subcategories),
+      aes(Year, value, fill=species),
+      alpha=.6
+      ) +
+    #total catogery in line
+    geom_line(
+      data = temp %>% filter(species == species_total),
+      aes(Year, value, color=species_total),
+      linewidth=1
+      ) +
+    #line total cateogry in black
+    scale_color_manual(
+      values="black"
+      ) +
+    #spacing every 1000s on y axis
+    scale_y_continuous(
+      labels = scales::label_number(drop0trailing = TRUE)
+      ) +
+    #labes
+    labs(
+      color="", x="", y="ktN excreted",
+      fill="subgroups",
+      title = paste(species_total, "excretions in", country_selected),
+      caption = "Source: FAOSTAT\ncomputation by Thomas Starck"
+    )
+
+  return(gg)
+
+}
+```
+
+::: panel-tabset
+### all animals
+
+```{r manure_subgroups}
+all_subspecies <-
+  c(
+    "Camels and Llamas",
+    "Cattle",
+    "Buffalo",
+    "Poultry Birds",
+    "Sheep and Goats",
+    "Swine",
+    "Horses",
+    "Mules and Asses"
+  )
+
+all_subs_subspecies <-
+  c(#Camels and Llamas
+    "Camels", "Llamas",
+    #Cattle
+    "Cattle, dairy",  "Cattle, non-dairy",
+    #Buffalo
+    "Buffalo",
+    #Poultry Birds
+    "Ducks", "Turkeys", "Chickens, broilers",  "Chickens, layers",
+    #Sheep and Goats
+    "Sheep", "Goats",
+    #Swine
+    "Swine, breeding","Swine, market",
+    #Horses
+    "Horses",
+    #Mules and Asses"
+    "Asses", "Mules and hinnes"
+    )
+```
+
+::: panel-tabset
+#### coarse subgroups
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "All Animals", all_subspecies
+  )
+```
+
+#### detailed subgroups
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "All Animals", all_subs_subspecies
+  )
+```
+
+:::
+
+### subgroups
+
+::: panel-tabset
+#### cattle
+
+cattle = cattle dairy + cattle non dairy (does not include buffalo !)
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Cattle", c("Cattle, dairy", "Cattle, non-dairy")
+  )
+```
+
+#### poultry birds
+
+poultry birds = chickens + ducks + turkey. Chickens can be further detailed into broilers and layers subgroups.
+
+::: panel-tabset
+##### chickens grouped
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Poultry Birds",
+  c("Chickens", "Ducks", "Turkeys")
+  )
+```
+
+##### chickens detailed
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Poultry Birds",
+  c("Chickens, broilers", "Chickens, layers", "Ducks", "Turkeys")
+  )
+```
+
+:::
+
+#### mules and asses
+
+Mules and Asses = Asses + Mules and hinnies
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Mules and Asses", c("Asses", "Mules and hinnies")
+  )
+```
+
+#### camels and llamas
+
+Camels and Llamas = Camels + Llamas
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Camels and Llamas", c("Camels", "Llamas")
+  )
+```
+
+#### sheep and goat
+
+Sheep and Goats = Sheep + Goats
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Sheep and Goats", c("Sheep", "Goats")
+  )
+```
+
+#### swine
+
+Swine = Swine, breeding + Swine, market
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Swine", c("Swine, breeding", "Swine, market")
+  )
+```
+
+#### buffalo
+
+buffalo has no subgroups
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Buffalo", c("Buffalo")
+  )
+```
+
+#### horses
+
+horses has no subgroups
+
+```{r}
+f_graph_livestock_comparison(
+  data_manure_world, "World",
+  "Amount excreted in manure (ktN)",
+  "Horses", c("Horses")
+  )
+```
+
+:::
+:::
+## our simplified species
+
+We keep only the coarse subcategories for the main files, and also create a file with a simple ruminant / non ruminant distinction.
+
+```{r}
+data_manure_world <-data_manure_world %>%
+  filter(species %in% c(all_subspecies, "All Animals"))
+
+data_manure_countries <-data_manure_countries %>%
+  filter(species %in% c(all_subspecies, "All Animals"))
+```
+
+```{r}
+species_ruminants <- c("Buffalo", "Cattle", "Sheep and Goats")
+species_non_ruminants <- c("Poultry Birds", "Swine", "Camels and Llamas", "Horses", "Mules and Asses")
+
+f_ruminants_summarize <- function(dataset){
+  data <- dataset %>%
+    mutate(
+      species = case_when(
+        species %in% species_ruminants ~ "ruminants",
+        species %in%  species_non_ruminants ~ "non ruminants",
+        species == "All Animals" ~ "All Animals" ,
+        T~"forget_species" #test to see if forgotten species in the list of ruminants and monogastrics
+        )
+      ) %>%
+    group_by(
+      country, Year, species, variable
+      ) %>%
+    summarise_all(sum, na.rm=T)
+  return(data)
+}
+data_manure_world_simple <- f_ruminants_summarize(data_manure_world)
+data_manure_countries_simple <-f_ruminants_summarize(data_manure_countries)
+```
+
+Below is presented a recurrent feature: non ruminants excrete less than ruminants, but more of their manure is gathered to be spread on soils.
+
+```{r}
+f_graph_ruminants <- function(
+    dataset, country_selected,
+    variable_subcategories, variable_total,
+    species_selected
+
+    ){
+
+  temp <- dataset %>%
+    filter(
+      country %in% country_selected,
+      species %in% species_selected
+      )
+  
+  temp <- temp %>%
+    mutate(
+      variable = case_when(
+        variable == "Manure applied to soils (ktN)" ~ "Collected and\napplied to soils\n",
+        variable == "Losses from manure treated (ktN)" ~ "Collected but volatilized\nduring storage\n",
+        variable == "Manure left on pasture (ktN)" ~ "\nLeft on pasture\n",
+        T ~ variable
+      )
+    )
+  
+  temp$variable <- factor(
+    temp$variable,
+    levels = c(ordered_manure_categories, variable_total)
+  )
+
+  gg <- ggplot() +
+    #subcategories in areas filled in different colors
+    geom_area(
+      data = temp %>% filter(variable %in% variable_subcategories),
+      aes(Year, value, fill=variable),
+      alpha=.6
+      ) +
+    #total catogery in line
+    geom_line(
+      data = temp %>% filter(variable == variable_total),
+      aes(Year, value, color=variable),
+      linewidth=1
+      ) +
+    #line total cateogry in black
+    scale_color_manual(
+      values="black"
+      ) +
+    #spacing every 1000s on y axis
+    scale_y_continuous(
+      labels = scales::label_number(drop0trailing = TRUE)
+      ) +
+    #labels
+    labs(
+      color="", x="", y="ktN",
+      fill="repartition of\nexcreted manure",
+      title = country_selected,
+      caption = "Source: FAOSTAT\ncomputation by Thomas Starck"
+    ) +
+    facet_wrap(vars(species))
+
+  return(gg)
+}
+
+ordered_manure_categories <- c("\nLeft on pasture\n", "Collected but volatilized\nduring storage\n", "Collected and\napplied to soils\n")
+```
+
+::: panel-tabset
+### World
+
+```{r}
+f_graph_ruminants(
+  data_manure_world_simple, "World",
+  ordered_manure_categories,
+  "Amount excreted in manure (ktN)",
+  c("ruminants", "non ruminants")
+)
+```
+
+
+### France
+
+```{r}
+f_graph_ruminants(
+  data_manure_countries_simple, "France",
+  ordered_manure_categories,
+  "Amount excreted in manure (ktN)",
+  c("ruminants", "non ruminants")
+)
+```
+
+
+### China
+
+```{r}
+f_graph_ruminants(
+  data_manure_countries_simple, "China",
+  ordered_manure_categories,
+  "Amount excreted in manure (ktN)",
+  c("ruminants", "non ruminants")
+)
+```
+
+
+### USA
+
+```{r}
+f_graph_ruminants(
+  data_manure_countries_simple, "United States of America",
+  ordered_manure_categories,
+  "Amount excreted in manure (ktN)",
+  c("ruminants", "non ruminants")
+)
+  
+```
+
+### countries comparison
+
+```{r}
+f_graph_ruminants(
+  data_manure_countries_simple, c("China", "United States of America", "France"),
+  ordered_manure_categories,
+  "Amount excreted in manure (ktN)",
+  c("ruminants", "non ruminants")
+) +
+  facet_grid(country~species, scales="free_y") +
+  labs(title = "", caption = "based on FAOSTAT data")
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "historical_manure_fate_China_USA_France",
+  350, 6, 8
+)
+```
+
+
+:::
+:::
+
+
+
+
+```{r remove_manure_temporary_file}
+rm(file_manure, data_manure_countries, data_manure_world)
+```
+
+
+
+# Mineral Fertilizers
+
+Data downloaded on FAOSTAT webpage Inputs -> [Fertilizers by nutrient](https://www.fao.org/faostat/en/#data/RFN){target="_blank"}. We load and prepare the data.
+
+```{r prepare_mineral_fertilizers}
+#load original file
+file_fertilizers <- read.csv("source/FAO/fertilizers/Inputs_FertilizersNutrient_E_All_Data/Inputs_FertilizersNutrient_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct turkey and cote d'ivoire encoding
+file_fertilizers <- f_correct_encoding(file_fertilizers)
+
+#transform and prepare data
+data_fertilizers_countries <- file_fertilizers %>%
+  filter(
+    `Area Code` < 5000 #keep only countries and not regions (Africa, World, Central Asia...)
+    )
+
+data_fertilizers_world <- file_fertilizers %>%
+  filter(
+    `Area Code` == 5000 #world world
+    )
+
+
+f_prepare_fertilizers <- function(dataset){
+
+
+  #transform and prepare data
+  data <- dataset %>%
+
+    #selects variables of interest, rename them
+    select(
+      country = Area, nutrient = Item, variable = Element, Unit, Y1961:Y2021
+      ) %>%
+
+    #years in 1 column
+    gather(
+      Year, value, Y1961:Y2021
+      ) %>%
+
+    mutate(
+
+      #add units in variable name
+      variable = paste0(variable, " (", Unit, ")"),
+
+      #transform years into integers
+      Year = as.integer(sub("^Y", "", Year)),
+
+      #convert P2O5 and K2O to P and K
+      value = case_when(
+        nutrient == "Nutrient phosphate P2O5 (total)" ~ value*conversion_P2O5_P,
+        nutrient == "Nutrient potash K2O (total)" ~ value*conversion_K2O_K,
+        nutrient == "Nutrient nitrogen N (total)" ~ value**1
+        ),
+
+      #change nutrient names
+      nutrient = case_when(
+        nutrient == "Nutrient phosphate P2O5 (total)" ~ "P total",
+        nutrient == "Nutrient potash K2O (total)" ~ "K total",
+        nutrient == "Nutrient nitrogen N (total)" ~ "N total"
+        )
+      ) %>%
+
+    #remove units columns
+    select(
+      -Unit
+      ) %>%
+
+    #spread variables into columns
+    spread(
+      variable, value
+      ) %>%
+
+    #change values from kg to kt
+    mutate(
+      `Agricultural Use (t)` = `Agricultural Use (t)`/10^3,
+      `Export Quantity (t)` = `Export Quantity (t)`/10^3,
+      `Import Quantity (t)` = `Import Quantity (t)`/10^3,
+      `Production (t)` = `Production (t)`/10^3
+      ) %>%
+
+    #rename variables accordingly
+    mutate(
+      `Agricultural Use (kt)` = `Agricultural Use (t)`,
+      `Export Quantity (kt)` = `Export Quantity (t)`,
+      `Import Quantity (kt)` = `Import Quantity (t)`,
+      `Production (kt)` = `Production (t)`
+      )
+
+  return(data)
+
+}
+data_fertilizers_countries <- f_prepare_fertilizers(data_fertilizers_countries)
+data_fertilizers_world <- f_prepare_fertilizers(data_fertilizers_world)
+```
+
+
+::: panel-tabset
+
+
+## Understand use/production/import/export
+
+Agricultural Use ~ Production - Export + Import. the small differences between the 2 quantities are due to variations in stocks.
+
+```{r graph_use_vs_ImportExportProd_lines}
+# graph comparison Use vs Export / Import / Production with 2 lines
+ggplot(data_fertilizers_countries %>% filter(country=="France")) +
+  geom_line(
+    aes(
+      Year, `Agricultural Use (kt)`,
+      color = "agricultural use"
+      )
+    ) +
+  geom_line(
+    aes(
+      Year,
+      (-`Export Quantity (kt)` + `Import Quantity (kt)` + `Production (kt)`),
+      color = "prod - export + import",
+      )
+    ) +
+  facet_wrap(vars(nutrient), ncol=2)  +
+  theme(
+    legend.position = c(.75, .25)
+  ) +
+  labs(
+    x="", y= "ktons", color="",
+    title = "Comparison of use with prod/export/import",
+    subtitle = "small differences can be due to stocks",
+    caption = "Source: FAOSTAT\ncomputation by Thomas Starck"
+  )
+```
+
+
+```{r graph_use_vs_ImportExportProd_area}
+# file for Export / Import / Production Areas
+temp <- data_fertilizers_countries %>%
+  filter(country=="France") %>%
+  select(
+    country, Year, nutrient,
+    `Export Quantity (kt)`, `Import Quantity (kt)`, `Production (kt)`
+    ) %>%
+  mutate(
+    `Export Quantity (kt)` = -`Export Quantity (kt)`
+  ) %>%
+  gather(
+    variable, value, -c(country, Year, nutrient)
+  )
+
+#graph comparison Use vs Export / Import / Production Areas
+ggplot(data_fertilizers_countries %>% filter(country=="France")) +
+  geom_line(
+    aes(Year, `Agricultural Use (kt)`, color="Agricultural Use")
+    ) +
+  geom_area(
+    data = temp,
+    aes(Year, value, fill=variable),
+    alpha=.6
+  ) +
+  facet_wrap(
+    vars(nutrient), ncol=2
+    ) +
+  theme(
+    legend.position = c(0.75, 0.25)
+  ) +
+  labs(
+    y="ktons", fill="", color="", x=""
+  ) +
+  #spacing every 1000s on y axis
+    scale_y_continuous(
+      labels = scales::label_number(drop0trailing = TRUE)
+      )
+```
+
+:::
+
+
+```{r remove_fertilizers_temporary_file}
+rm(file_fertilizers)
+```
+
+
+
+# Cropland nutrient balance
+
+Data downloaded on FAOSTAT webpage Sustainability Indicators -> [Cropland Nutrient Balance](https://www.fao.org/faostat/en/#data/ESB){target="_blank"}. We load and prepare the data.
+
+```{r load_and_prepare_FAO_cropland_nutrient_balance}
+#load FAO cropland balance
+file_cropland_balance <- read.csv("source/FAO/cropland_nutrient_balance/Environment_Cropland_nutrient_budget_E_All_Data/Environment_Cropland_nutrient_budget_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct turkey and cote d'ivoire encoding
+file_cropland_balance <- f_correct_encoding(file_cropland_balance)
+
+#transform and prepare data
+data_balance_countries <- file_cropland_balance %>%
+  filter(
+    `Area Code` < 5000 #keep only countries and not regions (Africa, World, Central Asia...)
+    )
+
+data_balance_world <- file_cropland_balance %>%
+  filter(
+    `Area Code` == 5000 #world code
+    )
+
+f_prepare_balance <- function(dataset){
+
+  data <- dataset %>%
+    select(
+      country = Area, flows = Item, variable = Element, Unit, Y1961:Y2021
+    ) %>%
+    #years in 1 column
+    gather(
+      Year, value, Y1961:Y2021
+    ) %>%
+    mutate(
+      #gather units in variable name
+      variable = paste0(variable, " (", Unit, ")"),
+      #transform years in integers
+      Year = as.integer(sub("^Y", "", Year))
+    ) %>%
+    #remove units columns
+    select(
+      -Unit
+    )
+
+  return(data)
+
+}
+data_balance_countries <- f_prepare_balance(data_balance_countries) %>% spread(variable, value)
+data_balance_world <- f_prepare_balance(data_balance_world) %>% spread(variable, value)
+
+```
+
+::: panel-tabset
+## Input and Output flows
+
+```{r function_graph_nutrients_inputs_outputs}
+#order of legend labels
+ordered_input_flows <- c("Seed", "Atmospheric Deposition", "Biological Fixation", "Manure applied to Soils", "Mineral fertilizers")
+ordered_output_flows <- c("Leaching", "Volatilisation", "Crop Removal")
+
+#function for graph inputs flows
+f_graph_inputs <- function(country_selected, nutrient_name, nutrient_label){
+
+  #inputs flows, in selected country
+  temp <- data_balance_countries %>%
+    filter(
+      country%in%country_selected,
+      flows %in% ordered_input_flows
+      )
+  #order input flows legend, in selected country
+  temp$flows <- factor(
+    temp$flows,
+    levels = ordered_input_flows
+  )
+
+  #total input, in selected country
+  temp2 <- data_balance_countries %>%
+    filter(
+      country%in%country_selected,
+      flows=="Input"
+      )
+
+
+  #graph
+  gg1 <- ggplot(temp2) +
+
+    #different input flows area
+    geom_area(
+      data = temp,
+      aes(Year, {{ nutrient_name }}/10^3, fill=flows),
+      alpha=.7
+      ) +
+
+    #total inputs line
+    geom_line(
+      aes(Year, {{ nutrient_name }}/10^3, color=" input"),
+      size=1.5
+      ) +
+    scale_color_manual(
+      values = c("black")
+      ) +
+
+    #labels
+    labs(
+      title = paste(nutrient_label, "inputs balance on croplands,", country_selected),
+      fill=paste("input flows"),
+      color="", y=paste0("kt", nutrient_label), x=""
+      )
+
+  return(gg1)
+}
+
+#function for graph outputs flows
+f_graph_output <- function(country_selected, nutrient_name, nutrient_label){
+
+  #outputs in selected country
+  temp <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows %in% ordered_output_flows
+      )
+  #order output flows legend, in selected country
+  temp$flows <- factor(
+    temp$flows,
+    levels = ordered_output_flows
+  )
+
+  #total outputs by FAO definition, in selected country
+  temp2 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Outputs"
+      )
+
+  #total inputs, in selected country
+  temp3 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Input"
+      )
+
+  #graph
+  gg <- ggplot(temp2) +
+
+    #different output flows area
+    geom_area(
+      data = temp,
+      aes(Year, {{ nutrient_name }}/10^3, fill=flows),
+      alpha=.7
+      ) +
+
+    #total output line by FAO definition
+    geom_line(
+      aes(Year, {{ nutrient_name }}/10^3, color='output, by\nFAO definition'),
+      size=1, linetype="dotted"
+      ) +
+
+    #total inputs line
+    geom_line(
+      data = temp3,
+      aes(Year, {{ nutrient_name }}/10^3, color="input"), size=2
+      ) +
+    scale_color_manual(values = c("black", "black")) +
+
+    #labels
+    labs(
+      title = paste(nutrient_label, "output balance on croplands,", country_selected),
+      fill=paste("output flows"),
+      color="", y=paste0("kt", nutrient_label), x=""
+      )
+
+  return(gg)
+
+}
+
+#function for graph inputs outputs flows side by side
+f_graph_inputs_outputs <- function(country_selected, nutrient_name, nutrient_label){
+
+  plot_grid(
+    f_graph_inputs(country_selected, {{ nutrient_name }}, nutrient_label),
+    f_graph_output(country_selected, {{ nutrient_name }}, nutrient_label),
+    nrow = 2, align = "v"
+    )
+}
+
+
+#save graph with example countries for thesis manuscript
+gg <- f_graph_inputs(c("France", "Italy", "Japan"), `Cropland nitrogen (t)`, "N") + 
+  facet_wrap(vars(country), ncol=1, scales = "free_y") +
+  labs(title = "N inputs on croplands", caption="based on FAOSTAT data for 2015-2020")
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "historical_inputs_France_Italy_Japan",
+  350, 6, 8
+)
+```
+
+Output flows in FAO's definition is the crop removal. The difference between inputs and crop removal, leaching and volatilization is what is left in the soil (crop residues, organic matter...).
+
+::: panel-tabset
+### France
+
+::: panel-tabset
+#### N
+
+```{r}
+f_graph_inputs_outputs("France", `Cropland nitrogen (t)`, "N")
+```
+
+#### P
+
+```{r}
+f_graph_inputs_outputs("France", `Cropland phosphorus (t)`, "P")
+```
+
+#### K
+
+```{r}
+f_graph_inputs_outputs("France", `Cropland potassium (t)`, "K")
+```
+
+:::
+
+### India
+
+::: panel-tabset
+#### N
+
+```{r}
+f_graph_inputs_outputs("India", `Cropland nitrogen (t)`, "N")
+```
+
+#### P
+
+```{r}
+f_graph_inputs_outputs("India", `Cropland phosphorus (t)`, "P")
+```
+
+#### K
+
+```{r}
+f_graph_inputs_outputs("India", `Cropland potassium (t)`, "K")
+```
+
+:::
+:::
+
+## Nutrient balance and use efficiency
+
+```{r functions_graphs_balance_and_nutrient_efficiency}
+#function to compare balance reported by FAO to input-output
+f_graph_balance <- function(country_selected, nutrient_name, nutrient_label){
+
+  #get balance values for selected country
+  temp <- data_balance_countries %>%
+    filter(flows=="Nutrient balance", country==country_selected)
+
+  #get input values for selected country
+  temp2 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Input"
+      )
+
+  #get output values for selected country
+  temp3 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Outputs"
+      )
+
+  #graph comparing balance to output/input
+  ggplot(temp) +
+
+    #balance area
+    geom_area(
+      aes(Year, {{ nutrient_name }}/10^3, fill="balance"),
+      alpha=.7
+      ) +
+    scale_fill_manual(values = "#440154") +
+
+    #output/input line
+    geom_line(
+      aes(
+        x=temp2$Year, color="input-output",
+        y=(temp2 %>% pull({{ nutrient_name }})-temp3 %>% pull({{ nutrient_name }}))/10^3
+        ),
+      linewidth=1.5
+      ) +
+    scale_color_manual(values = "black") +
+
+    #labels
+    labs(
+      x="", y=paste0("kt", nutrient_label), fill="", color="",
+      title = paste(nutrient_label, "cropland balance,", country_selected)
+      )
+
+}
+
+#function to compare nutrient use efficiency reported by FAO to output/input
+f_graph_nutrient_use_efficiency <- function(country_selected, nutrient_use_efficiency, nutrient_name, nutrient_label){
+
+  #get balance values for selected country
+  temp <- data_balance_countries %>%
+    filter(flows=="Nutrient balance", country==country_selected)
+
+  #get input values for selected country
+  temp2 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Input"
+      )
+
+  #get output values for selected country
+  temp3 <- data_balance_countries %>%
+    filter(
+      country==country_selected,
+      flows=="Outputs"
+      )
+
+  #graph comparing balance to output/input
+  ggplot(temp) +
+
+    #balance area
+    geom_area(
+      aes(Year, {{ nutrient_use_efficiency }}, fill="nutrient use\nefficiency"),
+      alpha=.7
+      ) +
+    scale_fill_manual(values = "#440154") +
+
+    #output/input line
+    geom_line(
+      aes(
+        x=temp2$Year, color="output/input",
+        y=( temp3 %>% pull({{ nutrient_name }})/temp2 %>% pull({{ nutrient_name }}) )*100
+        ),
+      linewidth=1.5
+      ) +
+    scale_color_manual(values = "black") +
+
+    #labels
+    labs(
+      x="", y="%", fill="", color="",
+      title = paste("Cropland", nutrient_label, "use efficiency,", country_selected)
+      )
+
+}
+
+#function to plot the 2 graphs side by side
+f_graph_balance_nutrient_use_efficiency <- function(country_selected, nutrient_use_efficiency, nutrient_name, nutrient_label){
+
+  plot_grid(
+    f_graph_balance(country_selected, {{ nutrient_name }}, nutrient_label),
+    f_graph_nutrient_use_efficiency(country_selected, {{ nutrient_use_efficiency }}, {{ nutrient_name }}, nutrient_label),
+    nrow=2, align="v"
+    )
+
+}
+```
+
+The nutrient balance is the difference between total inputs and outputs (i.e. crop removals). The nutrient use efficiency is the ration between outputs and inputs.
+
+::: panel-tabset
+### France
+
+::: panel-tabset
+#### N
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("France", `Cropland nitrogen use efficiency (%)`, `Cropland nitrogen (t)`, "N")
+```
+
+#### P
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("France", `Cropland phosphorus use efficiency (%)`, `Cropland phosphorus (t)`, "P")
+```
+
+#### K
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("France", `Cropland potassium use efficiency (%)`, `Cropland potassium (t)`, "K")
+```
+
+:::
+
+### India
+
+::: panel-tabset
+
+#### N
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("India", `Cropland nitrogen use efficiency (%)`, `Cropland nitrogen (t)`, "N")
+```
+
+#### P
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("India", `Cropland phosphorus use efficiency (%)`, `Cropland phosphorus (t)`, "P")
+```
+
+#### K
+
+```{r}
+f_graph_balance_nutrient_use_efficiency("India", `Cropland potassium use efficiency (%)`, `Cropland potassium (t)`, "K")
+```
+
+:::
+
+:::
+
+:::
+
+
+```{r remove_temporary_file_balance}
+#remove temporary file
+rm(file_cropland_balance)
+```
+
+
+
+
+
+
+
+
+# Food Supply 
+
+Food availability for 2010-2021. Data downloaded on FAOSTAT webpage Inputs -> [Availability](https://www.fao.org/faostat/en/#data/SUA){target="_blank"}, based on supply utilization accounts. We load and prepare the data.
+
+```{r prepare_food_supply}
+#load original file
+file_food_supply_availability <- read.csv("source/FAO/food_supply/availability_2010_2021/Supply_Utilization_Accounts_Food_and_Diet_E_All_Data/Supply_Utilization_Accounts_Food_and_Diet_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct turkey and cote d'ivoire encoding
+file_food_supply_availability <- f_correct_encoding(file_food_supply_availability)
+
+f_prepare_food_availability <- function(dataset){
+  #transform and prepare data
+  data <- dataset %>%
+    filter(
+      
+      #we do not dive into food subcategories
+      `Food Group` == "All food groups" 
+      ) %>%
+    
+    #selects variables of interest, rename them
+    select(
+      country = Area, nutrient = Indicator, Unit, Y2010:Y2021
+      ) %>%
+    
+    filter(
+      #focus only on N, P and K
+      nutrient %in% c(
+        "Protein supply", "Phosphorus supply", "Potassium supply"
+        )
+      ) %>%
+    
+    #years in 1 column
+    gather(
+      Year, value, Y2010:Y2021
+      ) %>%
+    mutate(
+      
+      #add units to variable name
+      nutrient = paste0(nutrient, " (", Unit, ")"),
+      
+      #transform years in integers
+      Year = as.integer(sub("^Y", "", Year))
+    ) %>%
+    
+    #remove units columns
+    select(
+      -Unit
+    ) %>%
+    
+    #spread variables into columns
+    spread(
+      nutrient, value
+    )
+  
+  return(data)
+}
+
+data_food_supply_availability <- f_prepare_food_availability(file_food_supply_availability)
+
+#convert proteins to N
+data_food_supply_availability <- data_food_supply_availability %>%
+  mutate(
+    `Nitrogen supply (g/cap/d)` = `Protein supply (g/cap/d)`/conversion_N_protein
+  )
+
+#conversion g or mg per day to kg per year, keep only these latters
+data_food_supply_availability <- data_food_supply_availability %>%
+  mutate(
+    `N supply (kg/cap/y)` = `Nitrogen supply (g/cap/d)`*365/1000,
+    `P supply (kg/cap/y)` = `Phosphorus supply (mg/cap/d)`*365/10^6,
+    `K supply (kg/cap/y)` = `Potassium supply (mg/cap/d)`*365/10^6
+  ) %>%
+  select(
+    country, Year, 
+    `N supply (kg/cap/y)`, `P supply (kg/cap/y)`, `K supply (kg/cap/y)`
+  )
+```
+
+Food balances for 2010-2021 and 1961-2010. Data downloaded on FAOSTAT webpage Inputs -> [Food balances (2010-)](https://www.fao.org/faostat/en/#data/FBS){target="_blank"} and [Food balances (-2013)](https://www.fao.org/faostat/en/#data/FBSH){target="_blank"}, based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
+
+
+Food balances for 2010-2021. Data downloaded on FAOSTAT webpage Inputs -> , based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
+
+
+```{r prepare_food_supply_balances}
+f_prepare_food_supply <- function(dataset, year_min, year_max){
+  #transform and prepare data
+  data <- dataset %>%
+    filter(
+      
+      #we do not dive into food subcategories
+      Item %in% c("Population", "Grand Total"),
+      
+      #keep only proteins
+      Element %in% c(
+        "Total Population - Both sexes", 
+        "Protein supply quantity (g/capita/day)", 
+        "Protein supply quantity (t)")
+      ) %>%
+    
+    #selects variables of interest, rename them
+    select(
+      country = Area, variable = Element, Unit, {{ year_min }}:{{ year_max }}
+      ) %>%
+    
+    #years in 1 column
+    gather(
+      Year, value, {{ year_min }}:{{ year_max }}
+      ) %>%
+    mutate(
+      
+      #add units to variable name
+      variable = paste0(variable, " (", Unit, ")"),
+      
+      #transform years in integers
+      Year = as.integer(sub("^Y", "", Year))
+    ) %>%
+    
+    #remove units columns
+    select(
+      -Unit
+    ) %>%
+    
+    #spread variables into columns
+    spread(
+      variable, value
+    )
+  
+  return(data)
+}
+
+f_food_supply_focus_N <- function(dataset){
+  #conversion protein to N, and per day to per year
+  data <- dataset %>%
+    mutate(
+      `N supply (kg/cap/y)` = (`Protein supply quantity (g/capita/day) (g/cap/d)`/conversion_N_protein)*365/1000,
+      `Population (Mhab)` = `Total Population - Both sexes (1000 No)`/1000,
+      `N supply (kt/y)` = `N supply (kg/cap/y)`*`Population (Mhab)`
+      
+    ) %>%
+    #keep only these latters
+    select(
+      country, Year, 
+      `N supply (kg/cap/y)`, `N supply (kt/y)`, `Population (Mhab)`
+    )
+  
+  return(data)
+}
+
+#load original file 2010-2021
+file_food_supply_balance_2010_2021 <- read.csv("source/FAO/food_supply/balance_sheet_2010_2021/FoodBalanceSheets_E_All_Data/FoodBalanceSheets_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct turkey and cote d'ivoire encoding
+file_food_supply_balance_2010_2021 <- f_correct_encoding(file_food_supply_balance_2010_2021)
+
+#load original file 1961-2013
+file_food_supply_balance_1961_2013 <- read.csv("source/FAO/food_supply/balance_sheet_1961_2013/FoodBalanceSheetsHistoric_E_All_Data/FoodBalanceSheetsHistoric_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#correct turkey and cote d'ivoire encoding
+file_food_supply_balance_1961_2013 <- f_correct_encoding(file_food_supply_balance_1961_2013)
+
+
+data_food_supply_balance_2010_2021 <- f_prepare_food_supply(file_food_supply_balance_2010_2021, Y2010, Y2021) 
+data_food_supply_balance_2010_2021 <- f_food_supply_focus_N(data_food_supply_balance_2010_2021)
+
+data_food_supply_balance_1961_2013 <- f_prepare_food_supply(file_food_supply_balance_1961_2013, Y1961, Y2013) 
+data_food_supply_balance_1961_2013 <- f_food_supply_focus_N(data_food_supply_balance_1961_2013)
+```
+
+
+::: panel-tabset
+
+## Comparisons
+
+```{r}
+temp <- bind_rows(
+  data_food_supply_balance_1961_2013 %>% mutate(source = "balance sheet 1961-2013"),
+  data_food_supply_balance_2010_2021 %>% mutate(source = "balance sheet 2010-2021"),
+  data_food_supply_availability %>% mutate(source = "availability")
+)
+
+ggplot(temp %>% filter(country=="France")) +
+  #availability 2010-2021
+  geom_line(
+    aes(Year, `N supply (kg/cap/y)`, color=source)
+    ) +
+  ylim(0, NA) +
+  labs(
+    x="", title = "Different FAO sources on N food supply",
+    subtitle = "Here for France"
+  )
+```
+
+
+Select a country to see its historical balance sheets and food availability data.
+
+```{r results=T}
+shared_data <- SharedData$new(temp)
+
+variable_filter_country <-
+  filter_select(id="country_filter", label="select a country", sharedData=shared_data, group=~country)
+
+gg <- ggplot(shared_data) +
+  #availability 2010-2021
+  geom_line(
+    aes(Year, `N supply (kg/cap/y)`, color=source, group=country)
+    ) +
+  ylim(0, NA) +
+  labs(
+    x=""
+  )
+
+bscols(
+    list(
+      variable_filter_country,
+      ggplotly(gg, dynamicTicks=T)
+    )
+  )
+```
+
+## Relative discrepancies
+
+Discrepancy between balance sheet 1961-2013 and 2010-2021 (during the 2010-2013 period)
+
+::: panel-tabset
+### all countries
+
+```{r}
+temp1 <- data_food_supply_balance_1961_2013 %>%
+  filter(
+    Year %in% c(2010, 2011, 2012, 2013)
+    ) %>%
+  select(
+    country, Year, supply_old = `N supply (kg/cap/y)`
+  )
+
+temp2 <- data_food_supply_balance_2010_2021 %>%
+  filter(
+    Year %in% c(2010, 2011, 2012, 2013)
+    ) %>%
+  select(
+    country, Year, supply_new = `N supply (kg/cap/y)`
+  )
+
+temp <- left_join(temp1, temp2, by=c("Year", "country"))
+
+temp <- temp %>%
+  mutate(
+    absolute_diff = supply_new-supply_old,
+    relative_diff = (supply_new-supply_old)/supply_old
+  ) %>%
+  group_by(
+    country
+  ) %>%
+  summarise(
+    absolute_diff = mean(absolute_diff, na.rm=T),
+    relative_diff = mean(relative_diff, na.rm=T)
+  )
+
+temp <- temp %>%
+  mutate(
+    error = case_when(
+      (relative_diff < -0.1) ~ ">10 % smaller",
+      (relative_diff>0.1) ~ ">10 % higher",
+      (relative_diff<0.05) & (relative_diff>=0) ~ "0 to 5 % higher",
+      (relative_diff<0.1) & (relative_diff>=0.05) ~ "5 to 10 % higher",
+      (relative_diff>-0.1) & (relative_diff<=0) ~ "-10 to 0 % smaller"
+    )
+  )
+```
+
+```{r}
+gg <- ggplot(temp) +
+  geom_col(
+    aes(
+      reorder(country, relative_diff), relative_diff,
+      text=paste("Country:", country, "<br>Relative Difference:", scales::percent(round(relative_diff, 2)))
+      )
+    ) +
+  theme(
+    axis.text.x = element_blank()
+    ) +
+  scale_y_continuous(
+    labels=scales::percent
+  ) +
+  labs(
+    x="", y="relative difference"
+    )
+
+ggplotly(gg, tooltip = "text")
+```
+
+```{r}
+f_graph_error_supply <- function(error_range){
+
+  gg <- ggplot(temp %>% filter(
+    error ==error_range
+    )) +
+    geom_col(
+      aes(reorder(country, relative_diff), relative_diff)
+      ) +
+    theme(
+      axis.text.x = element_text(angle=90, hjust=1)
+      ) +
+    labs(x="") +
+    facet_wrap(vars(error), scales = "free_x") +
+    scale_y_continuous(
+      labels = scales::percent
+    )
+
+  return(gg)
+
+}
+```
+
+### by error category
+
+::: panel-tabset
+####  >10 % smaller
+
+```{r}
+f_graph_error_supply(">10 % smaller")
+```
+
+#### -10 to 0 % smaller
+
+```{r}
+f_graph_error_supply("-10 to 0 % smaller")
+```
+
+#### 0 to 5 % higher
+
+```{r}
+f_graph_error_supply("0 to 5 % higher")
+```
+
+#### 5 to 10 % higher
+
+```{r}
+f_graph_error_supply("5 to 10 % higher")
+```
+
+#### 5 to 10 % higher
+
+```{r}
+f_graph_error_supply(">10 % higher")
+```
+
+:::
+
+:::
+
+:::
+
+We chose to focus on food supply from balance sheets 1961-2013 and use only 2014-2021 for the 2010-2021 data
+
+```{r}
+#gather the different periods of food supply
+data_food_supply_countries <- 
+  bind_rows(
+    data_food_supply_balance_1961_2013,
+    data_food_supply_balance_2010_2021 %>% filter(Year>2013)
+  )
+
+#data for whole world
+data_food_supply_world <- data_food_supply_countries %>%
+  filter(
+    country == "World" 
+    )
+
+#data for countries
+data_food_supply_countries <- data_food_supply_countries %>%
+  filter(
+    country !="World"  #keep only countries and not regions (Africa, World, Central Asia...)
+    )
+```
+
+
+```{r remove_temporary_files_food_supply}
+rm(file_food_supply_availability, file_food_supply_balance_1961_2013, file_food_supply_balance_2010_2021)
+rm(temp, temp1, temp2)
+rm(shared_data, variable_filter_country)
+```
+
+
+
+# Gathering the data
+
+```{r}
+f_prepare_gather_all_data <- function(dataset_manure, dataset_fertilizers, dataset_balance, dataset_supply){
+  
+  #select variables of interest for manure
+  temp_manure <- dataset_manure %>%
+    filter(
+      variable %in% c(
+        "Amount excreted in manure (ktN)", 
+        "Manure management (treated) (ktN)", 
+        "Losses from manure treated (ktN)",
+        "Manure applied to soils (ktN)",
+        "Manure left on pasture (ktN)" 
+        )
+      ) %>%
+    mutate(
+      variable = paste(species, variable)
+      ) %>%
+    ungroup() %>%
+    select(
+      -species
+      ) %>%
+    spread(variable, value)
+  
+  #select variables of interest for fertilizers: only focus on agricultural use
+  temp_fertilizers <- dataset_fertilizers %>%
+    select(
+      country, Year, nutrient, `Agricultural Use (t)`
+      ) %>%
+    spread(
+      nutrient, `Agricultural Use (t)`
+      ) %>%
+    rename(
+      `N mineral fertilization (ktN)` = `N total`,
+      `P mineral fertilization (ktP)` = `P total`,
+      `K mineral fertilization (ktK)` = `K total`
+    )
+  
+  
+  #select data from nutrient balance
+  temp_balance <- dataset_balance %>%
+    #transform tons to ktons
+    mutate(
+      `Cropland nitrogen (kt)` = `Cropland nitrogen (t)`/10^3
+      ) %>%
+    
+    #do not focus on P and K, nor nutrient use efficiency
+    select(
+      country, flows, Year, `Cropland nitrogen (kt)`
+      ) %>%
+    
+    #each variable in 1 different column
+    spread(flows, `Cropland nitrogen (kt)`) %>%
+    
+    #select and rename variables of interest
+    select(
+      country, Year,
+      `N croplands Input (ktN)` = Input,
+      `N croplands Atmospheric Deposition (ktN)` = `Atmospheric Deposition`,
+      `N croplands Biological Fixation (ktN)` = `Biological Fixation`,
+      `N croplands Manure applied to Soils (ktN)`= `Manure applied to Soils`,
+      `N croplands Mineral fertilizers (ktN)` = `Mineral fertilizers`,
+       )
+  
+  
+  # gather food supply and fertilizer data
+  temp <- left_join(
+    temp_fertilizers,
+    dataset_supply,
+    by=c("Year", "country")
+    )
+  
+  # add manure
+  temp <- left_join(
+    temp,
+    temp_manure,
+    by=c("Year", "country")
+  )
+  
+  # add N balance
+  temp <- left_join(
+    temp,
+    temp_balance,
+    by=c("Year", "country")
+  )
+  
+  return(temp)
+  
+}
+```
+
+save data
+
+```{r}
+#save countries data
+temp <- f_prepare_gather_all_data(
+  data_manure_countries_simple, data_fertilizers_countries,
+  data_balance_countries, data_food_supply_countries
+)
+f_save_csv_files(
+  temp, "output/",
+  "fao_manure_fertilizers_balance_food_supply_countries.csv"
+)
+
+#save whole world data
+temp <- f_prepare_gather_all_data(
+  data_manure_world_simple, data_fertilizers_world,
+  data_balance_world, data_food_supply_world
+)
+f_save_csv_files(
+  temp, "output/",
+  "fao_manure_fertilizers_balance_food_supply_world.csv"
+)
+```
+
+
+
+```{r remove_all_objects_in_environment}
+rm(list = ls())
+```
+
+
+
+
+
+

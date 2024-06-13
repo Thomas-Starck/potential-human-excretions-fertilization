@@ -1,0 +1,2056 @@
+---
+title: "potential"
+---
+
+This page synthesizes results on the agronomic potential of N in human excretions in Europe. We compare the total amount of N in human excretions to typical N inputs in agroecosystems: synthetic fertilizers, manure, total N inputs...
+
+RUSSIE ? pas juste indutrialized mais "rich industrialized" ?
+
+```{r setup, include=T, message=F, warning=F}
+knitr::opts_chunk$set(message=F, warning=F, fig.align = "center",  dev='svg')
+
+# Load the function file
+source("functions.R")
+#included:
+#-function to save csv f_save_csv_files
+#-set the default scale_color and scale_fill to viridis theme
+#-loads the core tidyverse package
+
+#set theme for graphs
+theme_set(
+  theme_classic() +
+  theme(
+    panel.grid.major.y = element_line(), #no vertical lines by default
+    #text = element_text(family = "Times New Roman"), #default font
+    plot.title = element_text(face="bold"), #graphs titles in bolds
+    )
+  )
+
+
+#additional packages loaded
+library(ggrepel) #for geom_text_repel
+library(patchwork) #for multiple plots
+
+Source <- "based on FAOSTAT data for 2015-2020"
+standard_subtitle <- "highlighted: rich industrialized countries"
+
+percent_food_waste <- 0.25
+percent_food_waste_max <- 0.3
+percent_food_waste_min <- 0.05
+percent_N_urine <- 0.85
+
+resolution_dpi <- 350
+grahps_height <- 8
+grahps_width <- 8
+
+
+#Western
+countries_to_select_western <- c(
+  #Europe Nordics
+  "Sweden", "Norway", "Finland", "Denmark",
+  #Europe Northern and Central
+  "Ireland", "UK", "Belgium", "Netherlands", "Switzerland", "Germany", "Austria", "Poland", 
+  #Europe Mediterranean
+  "Portugal", "Spain", "France", "Italy", "Greece",
+  
+  #Americas
+  "USA", "Canada",
+  
+  #Asia and Oceania
+  "Australia", "New Zealand", "Japan", "Korea", "Taiwan"
+)
+
+#extended countries
+countries_to_select_extended <- c(
+  #Americas
+  "Brazil",
+  
+  #Asia and Oceania
+  "India",
+  
+  #Africa
+  "South Africa", "Nigeria", "Egypt"
+)
+
+#function to select some countries in our dataset
+f_select_countries <- function(dataset, countries_to_select){
+  dataset <- dataset %>%
+    filter(country %in% countries_to_select)
+  return(dataset)
+}
+
+#function to highlith some particular countries
+f_highlight_countries <- function(dataset, highlighted_countries){
+  dataset <- dataset %>%
+    mutate(
+      highlight = case_when(
+        country %in% highlighted_countries~"Yes",
+        T ~ "No"
+        )
+      )
+  return(dataset)
+}
+```
+
+
+# Load and prepare data
+
+::: panel-tabset
+## Load data
+
+Load the cleaned FAO data (see in *Data source presentation -> FAO data*).
+
+```{r load_FAO}
+#load data (national for OneEarth, national and regional for STOTEN)
+file_FAO_countries <- read_csv("output/fao_manure_fertilizers_balance_food_supply_countries.csv")
+file_FAO_world <- read_csv("output/fao_manure_fertilizers_balance_food_supply_world.csv")
+
+#simplify name and remove some entities (mainly for our large countries plots)
+FAO_countries <- file_FAO_countries %>%
+  #remove particular entities
+  filter(
+    !country %in% c("China, mainland") #gather mainland China (then simply renamed "China") and Taiwan
+    ) %>%
+  #simplify some countries names
+  mutate(
+    country = case_when(
+      country == "United Kingdom of Great Britain and Northern Ireland" ~ "UK",
+      country == "United States of America" ~ "USA",
+      country == "Republic of Korea" ~ "Korea",
+      country == "Iran (Islamic Republic of)" ~ "Iran",
+      country == "United Republic of Tanzania" ~ "Tanzania",
+      country == "Democratic Republic of the Congo" ~ "Dem. Rep. Congo",
+      country == "Russian Federation" ~ "Russia",
+      country == "China, Taiwan Province of" ~ "Taiwan",
+      country == "China, mainland" ~ "China",
+      country == "Netherlands (Kingdom of the)" ~ "Netherlands",
+      T~country
+      )
+    )
+```
+
+## New variables analyzed
+
+Compute additional variables for analysis.
+
+```{r compute_new_variables_analyzed}
+#function to compute some new variables (excretions or urine as share of N inputs, fertilizers or manue)
+f_compute_new_variables <- function(dataset_FAO){
+  dataset_FAO <- dataset_FAO %>%
+  # compute new variables of interest
+    mutate(
+  
+      # food supply and excretion after food waste
+      `human excretions (ktN)` = `N supply (kt/y)`*(1-percent_food_waste),
+      `human urine (ktN)` = `human excretions (ktN)`*percent_N_urine,
+      
+      #   % fertilization (synthetic fertilizers, manure, total)
+      #fertilizers
+      `human excretions % of synthetic fertilization` = `human excretions (ktN)`/`N mineral fertilization (ktN)`,
+      `human urine % of synthetic fertilization` = `human urine (ktN)`/`N mineral fertilization (ktN)`,
+      #manure
+      `human excretions % of manure applied to soils` = `human excretions (ktN)`/`All Animals Manure applied to soils (ktN)`,
+      `human excretions % of ruminants applied to soils` = `human excretions (ktN)`/`ruminants Manure applied to soils (ktN)`,
+      `human excretions % of non ruminants applied to soils` = `human excretions (ktN)`/`non ruminants Manure applied to soils (ktN)`,
+      #total inputs
+      `human excretions % of croplands inputs` = `human excretions (ktN)`/`N croplands Input (ktN)`,
+      
+      # % livestock excretion
+      `human excretions % of livestock excretion` = `human excretions (ktN)`/`All Animals Amount excreted in manure (ktN)`,
+      `human excretions % of ruminant excretion` = `human excretions (ktN)`/`ruminants Amount excreted in manure (ktN)`,
+      `human excretions % of monogastric excretion` = `human excretions (ktN)`/`non ruminants Amount excreted in manure (ktN)`
+      )
+  
+  return(dataset_FAO)
+}
+
+#function to synthesize 2015-2020 mean
+f_synthesize_2015_2020 <- function(dataset_FAO){
+  
+  dataset_FAO <- dataset_FAO %>%
+    filter(Year>2014 & Year<2020) %>%
+    select(-Year) %>%
+    group_by(country) %>%
+    summarise_all(~mean(., na.rm=T))
+  
+  return(dataset_FAO)
+}
+
+#compute new variable for countries and world files
+FAO_countries <- f_compute_new_variables(FAO_countries)
+FAO_world <- f_compute_new_variables(file_FAO_world)
+
+#synthesize for countries and world files
+FAO_countries_2015_2020 <- f_synthesize_2015_2020(FAO_countries)
+FAO_world_2015_2020 <- f_synthesize_2015_2020(FAO_world)
+
+#get large countrie
+countries_to_select_large <- FAO_countries_2015_2020 %>%
+  select(country, `Population (Mhab)`) %>%
+  distinct() %>%
+  filter(`Population (Mhab)`>50) %>%
+  pull(country)
+```
+
+## Food supply or actual ingestion ? 
+
+In the original, data, what is called "total per capita ingestion" seems to be in reality the food supply before food waste. We show this in the graphs below. The points are surveys on actual ingestion / excretions. The white bars are the values reported in the study as "ingestion". We computed the purple bars, removing 25% of the white bar (the food waste rate we assume). Purple bars have a better agreement with the surveys. We will thus use it in the following as a proxy for actual ingestion and excretion.
+
+range: -5% to +25%
+
+```{r}
+(1-percent_food_waste_max)/(1-percent_food_waste)
+(1-percent_food_waste_min)/(1-percent_food_waste)
+```
+
+
+```{r function_graph_ingestion}
+f_graph <- function(
+    dataset,
+    variable_supply, variable_ingestion_excretion,
+    survey, y_label_supply, y_label_surveys, y_label_waste, breaks, minor_breaks
+    ){
+  #for x axis limit, to add text on th right
+  n_countries <- length(unique(dataset$country))
+
+  #plot
+  ggplot(dataset) +
+    #columns on proxy for intake (supplya minus 25% waste) and error bar (5% to 30% food waste)
+    geom_col(
+      aes(
+        reorder(country, {{ variable_ingestion_excretion }}),
+        {{ variable_ingestion_excretion }}
+        ),
+      fill = "#440154", alpha=.5, width = .8
+      ) +
+    geom_errorbar(
+      aes(x=country, 
+          ymin={{ variable_ingestion_excretion }}*(1-percent_food_waste_min)/(1-percent_food_waste),
+          ymax={{ variable_ingestion_excretion }}*(1-percent_food_waste_max)/(1-percent_food_waste)
+          ) ,
+      color="#440154", width=.5
+    ) +
+    #columns on food supply
+    geom_col(
+      aes(
+        reorder(country, {{ variable_supply }}),
+        {{ variable_supply }}
+        ),
+      fill = "transparent", color="black", width = .8, linewidth=.6
+      ) +
+    #points of literature review on actual intakes / excretion
+    geom_point(
+      data = survey,
+      aes(country, {{ variable_ingestion_excretion }}), size=3, color="#440154"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust=1),
+      panel.grid.minor.y= element_line(linewidth=.3)
+      ) +
+    coord_cartesian(
+      xlim=c(0, n_countries+10),
+      ylim=c(0, 7.5)
+      ) +
+    scale_y_continuous(
+      expand = c(0, 0), #so that x axis crosses Y axis at 0
+      breaks = seq(0, 10, by=breaks),
+      minor_breaks = seq(0, 10, by=minor_breaks)
+      ) +
+    #annotation supply minus 25% food waste
+    annotate(
+      "text", x=n_countries+1, y=y_label_waste, hjust=0, color="#440154", fontface="bold.italic",
+      label="purple bars:\nfood supply minus\n25% waste (proxy for\ningestion / excretion)\nand error bars\nfor 5-30% waste"
+      ) +
+    #annotation food supply
+    annotate(
+      "text", x=n_countries+1, y=y_label_supply, hjust=0, fontface="bold.italic",
+      label="white bars:\nfood waste (25%)"
+      ) +
+    #annotation surveys
+    annotate(
+      "text", x=n_countries+1, y=y_label_surveys, hjust=0, fontface="bold.italic", color="#440154",
+      label="points:\nreview on actual\ningestion / excretion"
+      ) +
+    #axis labels
+    labs(
+      x="", caption=Source
+      )
+}
+
+#figures of literature review
+surveys_N <-  tibble(
+  country=c("Sweden", "Germany", "France", "Thailand", "USA"),
+  `human excretions per cap (kgN/cap)` = c(4.5, 4.5, 4.6, 2.9, 4.5)
+  )
+```
+
+```{r supply_vs_excretion_STOTEN}
+temp <- FAO_countries_2015_2020 %>%
+  mutate(
+    `human excretions per cap (kgN/cap)` = `human excretions (ktN)`/`Population (Mhab)`
+  )
+temp <- temp %>%
+  filter(
+    country %in% c("USA", "Thailand", "Sweden", "Germany", "France")
+  )
+
+gg <- f_graph(
+  temp,
+  `N supply (kg/cap/y)`, `human excretions per cap (kgN/cap)`,
+  surveys_N,
+  y_label_supply = 6, y_label_surveys = 4.5, y_label_waste = 1.3,
+  breaks = 1, minor_breaks = .5
+  ) +
+  labs(y="kgN/cap/year")
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "waste_supply_excretion",
+  resolution_dpi, 6, 3.5
+)
+```
+
+:::
+
+
+```{r}
+#function to plot national bar graphs 
+f_graph_countries_bar <- function(dataset, variable){
+  ggplot(dataset) +
+    
+    #countries bars and print % of highlighted values
+    geom_col(
+      aes(
+        reorder(country, {{ variable }}), 
+        {{ variable }}, 
+        fill=highlight
+        ),
+      alpha=.7
+      ) +
+    geom_text(
+      data = dataset %>% filter(highlight == "Yes"),
+      aes(
+        x=country, y={{ variable }}, 
+        label=paste0(round({{ variable }}*100), "%")
+        ),
+      vjust=-0.5, fontface="bold.italic"
+      ) +
+    
+    #wolrd ba and print % of highlighted values
+    annotate(
+      geom="text", x="World", y= FAO_world_2015_2020 %>% pull({{ variable }}), 
+      label = paste0(round(FAO_world_2015_2020 %>% pull({{ variable }})*100), "%"),
+      vjust=-0.5, fontface="bold.italic"
+      ) +
+    geom_col(
+      data = FAO_world_2015_2020,
+      aes(country, {{ variable }}),
+      fill="red"
+      ) +
+    
+    # rest of graph options
+    scale_y_continuous(
+      limits = c(0, NA),
+      labels = scales::percent,
+      breaks = seq(0, 1.5, by=0.1),
+      minor_breaks = seq(.1, 1.5, by=0.05)
+      ) +
+    theme(
+      legend.position = "none",
+      panel.grid.minor.y= element_line(linewidth=.3),
+      axis.text.x = element_text(angle = 45, hjust=1)
+      ) +
+    labs(
+      fill="large country >35M habitants",
+      x="",
+      y="human excretions as % of\nmineral N fertilizers consumption"
+    ) +
+    guides(size="none")
+}
+
+#function to add extended countried to bar graph
+f_graph_countries_bar_extended_countries <- function(dataset, variable){
+    #countries bars and print % of highlighted values
+    gg <- geom_col(
+      data = dataset,
+      aes(
+        reorder(country, {{ variable }}), 
+        {{ variable }}
+        ),
+      fill="#440154", alpha=.4
+      ) 
+    
+    return(gg)
+}
+
+#function for historical data
+f_historical_graph <- function(dataset, variable, y_lab, y_lim, y_breaks, y_minor_breaks){
+  
+  gg <- ggplot(dataset) +
+    
+    #curves of countries highlighted, and their labels
+    geom_line(
+      data = dataset %>% filter(highlight == "Yes", Year<=2021),
+      aes(
+        Year, {{ variable }}, 
+        group=country, color=country
+        ),
+      alpha=.9, linewidth=2
+      ) +
+    geom_text_repel(
+      data = dataset %>% filter(highlight=="Yes", Year==2021),
+      aes(2021, {{ variable }}, label=country, color=country),
+      direction = "y", xlim = c(2021, NA), hjust=0
+      ) +
+    
+    #curves for world highlighted
+    geom_line(
+      data = FAO_world,
+      aes(Year, {{ variable }}), color="red", linewidth=2
+      ) +
+    geom_text_repel(
+      data = FAO_world %>% filter(Year==2021),
+      aes(2021, {{ variable }}, label=country),
+      direction = "y", xlim = c(2021, NA), hjust=0, color="red"
+      ) +
+    
+    #curves of countries non highlighted
+    geom_line(
+      data = dataset %>% filter(highlight == "No"),
+      aes(
+        Year, {{ variable }}, 
+        group=country
+        ),
+      alpha=.15
+      ) +
+    
+    #other graph options
+    scale_y_continuous(
+      labels = scales::percent,
+      breaks = seq(0, 10^3, by=y_breaks),
+      minor_breaks = seq(0, 10^3, by=y_minor_breaks)
+      ) +
+    scale_x_continuous(
+      breaks = seq(1960, 2020, by=10)
+      ) +
+    coord_cartesian(
+      ylim = c(0, y_lim),
+      xlim = c(1960, 2025)
+      ) +
+    theme(
+      legend.position = "none",
+      panel.grid.minor.y= element_line(linewidth=.3),
+      axis.text.x = element_text(angle = 45, hjust=1)
+      ) +
+    labs(
+      x="", color="",
+      y=y_lab
+      ) 
+  
+  return(gg)
+}
+```
+
+```{r functions_for_excretions_potential}
+#prepare inputs file
+f_prepare_inputs <- function(dataset){
+  dataset <- dataset %>%select(
+    #ountry and population
+    country, `Population (Mhab)`, 
+    
+    #total excretions and urine,
+    `human excretions (ktN)`, `human urine (ktN)`,
+    `human excretions % of croplands inputs`, `human urine % of synthetic fertilization`, 
+    
+    #total fertilizers used
+    `N mineral fertilization (ktN)`,
+    
+    #inputs to croplands
+    `N croplands Input (ktN)`,
+    `N croplands Atmospheric Deposition (ktN)`, `N croplands Biological Fixation (ktN)`,
+    `N croplands Manure applied to Soils (ktN)`, `N croplands Mineral fertilizers (ktN)`,
+    
+    ) %>%
+  
+  gather(
+    input_flow, value, 
+    c(`N croplands Atmospheric Deposition (ktN)`, 
+      `N croplands Biological Fixation (ktN)`, 
+      `N croplands Manure applied to Soils (ktN)`, 
+      `N croplands Mineral fertilizers (ktN)`)
+    ) %>%
+  
+  mutate(
+    input_flow = gsub("N croplands ", "", input_flow),
+    input_flow = gsub(" \\(ktN\\)", "", input_flow)
+    ) 
+  
+  return(dataset)
+}
+temp_croplands_inputs <- f_prepare_inputs(FAO_countries_2015_2020)
+temp_croplands_inputs_world <- f_prepare_inputs(FAO_world_2015_2020)
+
+
+f_graph_comparison_inputs_per_cap <- function(dataset, variable_inputs, variable_order, variable_excretions){
+  data_excretions <- dataset %>%
+    select(country, `Population (Mhab)`, {{ variable_excretions }}, highlight) %>%
+    distinct()
+  
+  #graph comparison absolute per cap : excretions vs inputs
+  gg <- ggplot(dataset) +
+    
+    #bars columns inputs N in different colors, with highlighted industrialized countries
+    geom_col(
+      aes(
+        {{ variable_inputs }}/`Population (Mhab)`, reorder(country, {{ variable_order }}/`Population (Mhab)`),
+        fill=input_flow, alpha=highlight
+        )
+      ) +
+    scale_alpha_manual(values=c("No"=.4, "Yes"=1), guide = FALSE) +
+    
+    #error bars of excretions, based on min and max values of excretions
+    geom_linerange(
+      data = data_excretions,
+      aes(
+        xmin={{ variable_excretions }}/`Population (Mhab)`*(1-percent_food_waste_min)/(1-percent_food_waste),
+        xmax={{ variable_excretions }}/`Population (Mhab)`*(1-percent_food_waste_max)/(1-percent_food_waste),
+        y=country, alpha=highlight,
+        color="excretions"
+        )
+      ) +
+    
+    #points excretions N in red
+    geom_point(
+      data = data_excretions,
+      aes({{ variable_excretions }}/`Population (Mhab)`, country, color="excretions", alpha=highlight)
+      ) +
+    scale_color_manual(values="red") +
+    
+    #other options
+    scale_x_reverse(
+      breaks = seq(0, 1000, 10),
+      minor_breaks = seq(0, 1000, 5)
+      ) +
+    theme(
+      axis.text.y = element_text(hjust=0.5),
+      legend.position = c(0.35, 0.35),
+      axis.ticks.y = element_blank(),
+      axis.line.y = element_blank(),
+      panel.grid.major.y= element_blank(),
+      panel.grid.major.x= element_line(),
+      panel.grid.minor.x= element_line(),
+      ) +
+    labs(
+      y="", x="kgN/capita", color="", fill=""
+      ) 
+  
+  return(gg)
+  
+}
+
+f_graph_comparison_inputs_per_cap_add_world <- function(graph_countries, dataset_world, variable_inputs, variable_excretions){
+    
+    #columns, highlighted if western country
+    gg <- graph_countries +
+    
+    #bars columns inputs N in different colors, with highlighted industrialized countries
+    geom_col(
+      data = dataset_world,
+      aes(
+        {{ variable_inputs }}/`Population (Mhab)`, country,
+        fill=input_flow
+        ),
+      alpha=.4
+      ) +
+    
+    #error bars of excretions, based on min and max values of excretions
+    geom_linerange(
+      data = dataset_world,
+      aes(
+        xmin={{ variable_excretions }}/`Population (Mhab)`*(1-percent_food_waste_min)/(1-percent_food_waste),
+        xmax={{ variable_excretions }}/`Population (Mhab)`*(1-percent_food_waste_max)/(1-percent_food_waste),
+        y=country,
+        color="excretions"
+        ),
+      alpha=.4
+      ) +
+
+    #points excretions N in red
+    geom_point(
+      data = dataset_world,
+      aes({{ variable_excretions }}/`Population (Mhab)`, country, color="excretions"),
+      alpha=.4
+      ) 
+  return(gg)
+}
+
+
+f_graph_potential_percent <- function(dataset, variable, variable_order){
+  
+  gg <- ggplot(dataset) +
+    
+    #columns, highlighted if western country
+    geom_col(
+      aes(
+        {{ variable }}, reorder(country, {{ variable_order }}/`Population (Mhab)`), 
+        alpha=highlight
+        )
+      ) +
+    scale_alpha_manual(values=c("No"=.4, "Yes"=1), guide = FALSE) +
+    
+    #add % value atht the end of the column
+    geom_text(
+      aes(
+        {{ variable }}, country, 
+        label = paste0(round({{ variable }}*100/5)*5, "%")
+        ),
+      hjust=0
+      ) +
+    geom_text(
+      aes(
+        {{ variable }}, country, 
+        label = paste0(
+          "(",
+          round({{ variable }}*(1-percent_food_waste_max)/(1-percent_food_waste)*100), 
+          "-",
+          round({{ variable }}*(1-percent_food_waste_min)/(1-percent_food_waste)*100),
+          ")"
+          )
+        ),
+      hjust=-1.3, vjust=0.5, size=2, fontface="italic"
+      ) +
+    
+    
+    #other options
+    theme(
+      axis.text.y = element_text(hjust=0.5),
+      axis.ticks.y = element_blank(),
+      axis.line.y = element_blank(),
+      panel.grid.major.y= element_blank(),
+      panel.grid.major.x= element_line(),
+      panel.grid.minor.x= element_line()
+      ) +
+    labs(
+      x="", y=""
+      ) +
+    coord_cartesian(
+      xlim = c(0, 1)
+      )  +
+    scale_x_continuous(
+      labels=scales::percent,
+      breaks=seq(0, 10, .2),
+      minor_breaks = seq(0, 10, .05)
+      ) 
+    
+  return(gg)
+  
+}
+
+f_graph_potential_percent_add_world <- function(graph_countries, dataset_world, variable){
+    
+    #columns, highlighted if western country
+    gg <- graph_countries +
+      geom_col(
+      data = dataset_world,
+      aes(
+        {{ variable }}, country
+        ),
+      alpha=.4
+      ) +
+
+    #add % value atht the end of the column
+    geom_text(
+      data = dataset_world,
+      aes(
+        {{ variable }}, country,
+        label = paste0(round({{ variable }}*100/5)*5, "%")
+        ),
+      hjust=0
+      ) +
+    geom_text(
+      data = dataset_world,
+      aes(
+        {{ variable }}, country,
+        label = paste0(
+          "(",
+          round({{ variable }}*(1-percent_food_waste_max)/(1-percent_food_waste)*100/5)*5,
+          "-",
+          round({{ variable }}*(1-percent_food_waste_min)/(1-percent_food_waste)*100/5)*5,
+          ")"
+          )
+        ),
+      hjust=-1.3, vjust=0.5, size=2, fontface="italic"
+      )
+  return(gg)
+}
+```
+
+
+
+# % of excreted manure applied to soils
+
+```{r}
+f_prepare_share_manure_to_soil <- function(dataset){
+  variable_subcategories_ruminants <- c(
+  "ruminants Amount excreted in manure (ktN)", 
+  "ruminants Losses from manure treated (ktN)", 
+  "ruminants Manure applied to soils (ktN)", 
+  "ruminants Manure left on pasture (ktN)"
+  )
+  variable_subcategories_non_ruminants <- c(
+    "non ruminants Amount excreted in manure (ktN)", 
+    "non ruminants Losses from manure treated (ktN)", 
+    "non ruminants Manure applied to soils (ktN)", 
+    "non ruminants Manure left on pasture (ktN)"
+  )
+  variable_subcategories_all <- c(
+    "All Animals Amount excreted in manure (ktN)", 
+    "All Animals Losses from manure treated (ktN)", 
+    "All Animals Manure applied to soils (ktN)", 
+    "All Animals Manure left on pasture (ktN)"
+  )
+  
+  #prepare ruminants
+  temp1 <- dataset %>%
+    select(country, all_of(variable_subcategories_ruminants)) %>%
+    mutate(
+      percent_applied = `ruminants Manure applied to soils (ktN)`/`ruminants Amount excreted in manure (ktN)`,
+      species = "ruminants") %>%
+    gather(subgroup, subgroup_value, -c(country, percent_applied, species)) 
+  temp1$subgroup <- gsub(" \\(ktN\\)", "", temp1$subgroup)
+  temp1$subgroup <- gsub("ruminants ", "", temp1$subgroup)
+  
+  #prepare non ruminants
+  temp2 <- dataset %>%
+    select(country, all_of(variable_subcategories_non_ruminants)) %>%
+    mutate(
+      percent_applied = `non ruminants Manure applied to soils (ktN)`/`non ruminants Amount excreted in manure (ktN)`,
+      species = "non ruminants") %>%
+    gather(subgroup, subgroup_value, -c(country, percent_applied, species)) 
+  temp2$subgroup <- gsub(" \\(ktN\\)", "", temp2$subgroup)
+  temp2$subgroup <- gsub("non ruminants ", "", temp2$subgroup)
+  
+  #prepare all
+  temp3 <- dataset %>%
+    select(country, all_of(variable_subcategories_all)) %>%
+    mutate(
+      percent_applied = `All Animals Manure applied to soils (ktN)`/`All Animals Amount excreted in manure (ktN)`,
+      species = "all livestock") %>%
+    gather(subgroup, subgroup_value, -c(country, percent_applied, species)) 
+  temp3$subgroup <- gsub(" \\(ktN\\)", "", temp3$subgroup)
+  temp3$subgroup <- gsub("All Animals ", "", temp3$subgroup)
+  
+  #binds them together
+  temp <- bind_rows(temp1, temp2, temp3)
+  
+  
+  temp <- temp %>%
+  filter(subgroup!="Amount excreted in manure") %>%
+  mutate(
+    subgroup = case_when(
+      subgroup == "Manure left on pasture" ~ "Left on pasture",
+      subgroup == "Losses from manure treated" ~ "Collected but volatilized\nduring storage",
+      subgroup == "Manure applied to soils" ~ "Collected and\napplied to soils"
+    )
+  )
+  
+  
+  #order categories for legend
+  variable_subcategories <- c("Left on pasture", "Collected but volatilized\nduring storage", "Collected and\napplied to soils")
+
+  temp$subgroup <- factor(
+    temp$subgroup,
+    levels = c(variable_subcategories)
+  )
+  
+  return(temp)
+  
+}
+temp_share_manure_soils <- f_prepare_share_manure_to_soil(FAO_countries_2015_2020)
+temp_share_manure_soils_world <- f_prepare_share_manure_to_soil(FAO_world_2015_2020)
+```
+
+```{r}
+f_graph_manure_applied_losses <- function(dataset, dataset_world, countries_to_select){
+  
+  temp <- dataset %>% filter(country %in% countries_to_select)
+  
+  gg <- ggplot() +
+    #countries
+    geom_col(
+      data = temp %>% filter(subgroup != "Amount excreted in manure"),
+      aes(subgroup_value, reorder(country, percent_applied), fill=subgroup, alpha=highlight),
+      position = "fill"
+      ) +
+    scale_alpha_manual(values=c("No"=.4, "Yes"=1), guide = FALSE) +
+    geom_text(
+      data = temp %>% select(country, percent_applied, species) %>% distinct(),
+      aes(0, country, label=paste0(round(percent_applied*100), "%")),
+      hjust=0, fontface="italic", size=3
+      ) +
+    
+    #wolrd
+    geom_col(
+      data = dataset_world %>% filter(subgroup != "Amount excreted in manure"),
+      aes(subgroup_value, country, fill=subgroup),
+      position = "fill", alpha=.4
+      ) +
+    geom_text(
+      data = dataset_world %>% select(country, percent_applied, species) %>% distinct(),
+      aes(0, country, label=paste0(round(percent_applied*100), "%")),
+      hjust=0, fontface="italic", size=3
+      ) +
+    
+    
+    
+    scale_x_continuous(
+      labels = scales::percent,
+      breaks = seq(0, 1, 0.2)
+      ) +
+    theme(legend.position = "top") +
+    
+    #labels
+    labs(
+        color="", x="", y="",
+        fill="repartition of\nexcreted manure",
+        title = "Share of excreted manure collected and applied to soils",
+        subtitle = standard_subtitle,
+        caption = Source
+      ) +
+      facet_wrap(vars(species))
+    
+  return(gg)
+}
+```
+
+
+```{r fig.height=8}
+temp <- f_highlight_countries(temp_share_manure_soils, countries_to_select_western)
+
+gg <- f_graph_manure_applied_losses(
+  temp, temp_share_manure_soils_world,
+  c(countries_to_select_large, countries_to_select_western)
+  )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "fate_manure",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+
+
+# % of synthetic fertilizers covered by urine
+
+::: panel-tabset
+## 2015-2020
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrial countries
+temp <- temp_croplands_inputs %>% filter(country %in% c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+gg1 <- f_graph_comparison_inputs_per_cap(
+  temp %>% filter(input_flow=="Mineral fertilizers"),
+  `N mineral fertilization (ktN)`, 
+  `N mineral fertilization (ktN)`, 
+  `human urine (ktN)`
+  ) +
+  scale_fill_manual(values="#fde725") +
+  labs(subtitle = "N in urine and fertilizers consumption")
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_croplands_inputs_world %>% filter(input_flow=="Mineral fertilizers"),
+  `N mineral fertilization (ktN)`, 
+  `human urine (ktN)`
+)
+
+
+gg2 <- f_graph_potential_percent(
+  temp %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human urine % of synthetic fertilization`, 
+  `N mineral fertilization (ktN)` 
+  )  + labs(subtitle ="% of fertilizers replaced by urine")
+gg2 <- f_graph_potential_percent_add_world(
+  gg2,
+  temp_croplands_inputs_world %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human urine % of synthetic fertilization`
+  )
+
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "Maximum potential substitution of synthetic fertilizers by human urine",
+    subtitle = standard_subtitle,
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_urine_vs_synth_ferti",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+## 1961-2020
+
+```{r}
+#select countries to show
+temp <- f_select_countries(FAO_countries, countries_to_select_western)
+
+#select countries to highlight
+highlighted_countries <- c("France", "UK", "Japan", "USA")
+temp <- f_highlight_countries(temp, highlighted_countries)
+
+#graph
+f_historical_graph(
+  temp, 
+  `human urine % of synthetic fertilization`,
+  "human N urine as % of\nsynthetic fertilizers", 
+  y_lim=NA, y_breaks = 0.2, y_minor_breaks = 0.05
+  ) 
+```
+
+:::
+
+
+
+
+
+
+
+
+# % of cropland inputs
+
+::: panel-tabset
+
+### 2015-2020
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrialized countries
+temp <- temp_croplands_inputs %>% filter(country %in% c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+
+#Graphs
+gg1 <- f_graph_comparison_inputs_per_cap(
+  temp, value, `N croplands Input (ktN)`, `human excretions (ktN)` 
+  ) + labs(fill="inputs to croplands", subtitle = "N in excretions vs cropland inputs")
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_croplands_inputs_world, value, `human excretions (ktN)` 
+)
+
+gg2 <- f_graph_potential_percent(
+  temp %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excretions % of croplands inputs`, `N croplands Input (ktN)`
+  ) + labs(subtitle = "excretions as % of cropland inputs")
+gg2 <- f_graph_potential_percent_add_world(
+  gg2,
+   temp_croplands_inputs_world %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excretions % of croplands inputs`
+)
+
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "Human excretions compared to croplands N inputs",
+    subtitle = standard_subtitle,
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_excretions_vs_cropland_ferti",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+### 1960-2020 
+
+```{r}
+#select countries to show
+temp <- f_select_countries(FAO_countries, countries_to_select_western)
+
+#select countries to highlight
+highlighted_countries <- c("France", "UK", "Japan", "USA", "Korea", "Italy")
+temp <- f_highlight_countries(temp, highlighted_countries)
+
+#graph
+f_historical_graph(
+  temp, 
+  `human excretions % of croplands inputs`,
+  "human N excretions as % of\ncroplands N inputs", 
+  y_lim=NA, y_breaks = 0.2, y_minor_breaks = 0.05
+  ) 
+```
+
+:::
+
+
+# Comparison cropland inputs / total N
+
+```{r}
+f_graph_ratio <- function(dataset, dataset_world, var_numerator, var_denominator){
+  
+  dataset <- dataset %>%
+    mutate(
+      ratio = {{ var_numerator }}/{{ var_denominator }}
+    )
+  
+  dataset_world <- dataset_world %>%
+    mutate(
+      ratio = {{ var_numerator }}/{{ var_denominator }}
+    )
+  
+  ggplot(dataset) +
+    
+    #countries
+    geom_col(
+      aes(ratio, reorder(country, ratio), alpha=highlight),
+      fill="#440154"
+      ) +
+    scale_alpha_manual(values=c("No"=.4, "Yes"=.9), guide = FALSE) +
+    
+    #world
+    geom_col(
+      data = dataset_world,
+      aes(ratio, country),
+      fill="#440154", alpha=.4
+      ) +
+    
+    #other options
+    scale_x_continuous(
+      labels=scales::percent,
+      breaks = seq(0, 2, .2),
+      minor_breaks = seq(0, 2, .1)
+    ) +
+    geom_vline(xintercept = 1, linetype="dashed") +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_line(),
+      panel.grid.minor.x = element_line(),
+    ) +
+    labs(
+      y="", x=""
+    )
+  
+}
+```
+
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrialized countries
+temp <- f_select_countries(FAO_countries_2015_2020, c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+gg1 <- f_graph_ratio(temp, FAO_world_2015_2020, `N croplands Manure applied to Soils (ktN)`, `All Animals Manure applied to soils (ktN)`) +
+  labs(
+    title = "manure applied to soils"
+    )
+gg2 <- f_graph_ratio(temp, FAO_world_2015_2020, `N croplands Mineral fertilizers (ktN)`, `N mineral fertilization (ktN)`) +
+  labs(
+    title  = "synthetic fertilizers",
+    )
+gg <- gg1 + gg2 +
+  plot_annotation(
+      title = "Cropland fertilization as % of Total fertilization",
+      subtitle = standard_subtitle,
+      caption = Source
+      )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "total_vs_cropland_ferti",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+
+
+
+
+# % manure applie handled and applied to soils (croplands and grasslands)
+
+
+```{r}
+recovery_human_excretions <- 0.8
+
+f_prepare_manure_to_soils <- function(dataset){
+  #prepare inputs file
+  dataset <- dataset %>%
+    select(
+      #country and population
+      country, `Population (Mhab)`, 
+      
+      #total excretions,
+      `human excretions (ktN)`, `human excretions % of manure applied to soils`,
+      
+      #inputs to croplands
+      `All Animals Manure applied to soils (ktN)`,
+      `non ruminants Manure applied to soils (ktN)`,
+      `ruminants Manure applied to soils (ktN)` 
+  
+      
+      ) %>%
+    
+    gather(
+      input_flow, value, 
+      c(`non ruminants Manure applied to soils (ktN)`, 
+        `ruminants Manure applied to soils (ktN)`)
+      ) %>%
+    
+    mutate(
+      input_flow = gsub(" Manure applied to soils \\(ktN\\)", "", input_flow)
+      ) 
+  
+  #order ruminants / non ruminants legend
+  dataset$input_flow <- factor(
+    dataset$input_flow,
+    levels = c("ruminants", "non ruminants")
+  )
+  
+  #apply recovery rate to human excretions
+  dataset <- dataset %>%
+    mutate(
+      `human excretions (ktN)` = `human excretions (ktN)` * recovery_human_excretions,
+      `human excretions % of manure applied to soils` = `human excretions % of manure applied to soils` * recovery_human_excretions
+      )
+  
+  return(dataset)
+  
+}
+
+temp_manure_to_soils <- f_prepare_manure_to_soils(FAO_countries_2015_2020)
+temp_manure_to_soils_world <- f_prepare_manure_to_soils(FAO_world_2015_2020)
+```
+
+
+::: panel-tabset
+## 2015-2020
+
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrialized countries
+temp <- f_select_countries(temp_manure_to_soils, c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+
+#Graphs
+gg1 <- f_graph_comparison_inputs_per_cap(
+  temp, value, `All Animals Manure applied to soils (ktN)`, `human excretions (ktN)` 
+  ) +
+  coord_cartesian(xlim=c(30, 0)) +
+  labs(
+    fill="manure applied to soils", subtitle = "human excretions compared to manure"
+  )
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_manure_to_soils_world, value, `human excretions (ktN)` 
+)
+
+
+gg2 <- f_graph_potential_percent(
+  temp %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excretions % of manure applied to soils`, `All Animals Manure applied to soils (ktN)`
+  ) +
+  coord_cartesian(xlim = c(0, 2))  +
+  labs(
+    subtitle = "human excretions as % of manure"
+  )
+gg2 <- f_graph_potential_percent_add_world(
+  gg2,
+  temp_manure_to_soils_world %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excretions % of manure applied to soils`
+)
+
+
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "Human excretions (80% recovery) compared to manure applied to soils",
+    subtitle = standard_subtitle,
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_excretions_vs_manure_applied",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# % manure applied to croplands 
+
+
+```{r}
+recovery_human_excretions <- 0.8
+
+f_prepare_manure_to_croplands <- function(dataset){
+  #prepare inputs file
+  dataset <- dataset %>%
+    select(
+      #country and population
+      country, `Population (Mhab)`, 
+      
+      #total excretions,
+      `human excretions (ktN)`, 
+      
+      #manure to croplands
+      `Manure applied to croplands (ktN)`  = `N croplands Manure applied to Soils (ktN)` 
+  
+      ) %>%
+    
+    mutate(
+      `human excretions % of manure applied to croplands` = `human excretions (ktN)`/`Manure applied to croplands (ktN)` 
+    ) %>%
+    
+    gather(
+      input_flow, value, `Manure applied to croplands (ktN)` 
+      ) 
+  
+  #apply recovery rate to human excretions
+  dataset <- dataset %>%
+    mutate(
+      `human excretions (ktN)` = `human excretions (ktN)` * recovery_human_excretions,
+      `human excretions % of manure applied to croplands` = `human excretions % of manure applied to croplands` * recovery_human_excretions
+      )
+  
+  return(dataset)
+  
+}
+
+temp_manure_to_croplands <- f_prepare_manure_to_croplands(FAO_countries_2015_2020)
+temp_manure_to_croplands_world <- f_prepare_manure_to_croplands(FAO_world_2015_2020)
+```
+
+
+::: panel-tabset
+## 2015-2020
+
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrialized countries
+temp <- f_select_countries(temp_manure_to_croplands, c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+
+#Graphs
+gg1 <- f_graph_comparison_inputs_per_cap(
+  temp, value, value , `human excretions (ktN)` 
+  ) +
+  scale_fill_manual(values = "#35b779") +
+  labs(
+    fill="", subtitle = "human excretions compared to manure"
+  )
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_manure_to_croplands_world, value, `human excretions (ktN)` 
+)
+
+gg2 <- f_graph_potential_percent(
+  temp, 
+  `human excretions % of manure applied to croplands`, value
+  ) +
+  scale_fill_manual(values = "#35b779") +
+  coord_cartesian(xlim = c(0, 2))  +
+  labs(
+    subtitle = "human excretions as % of manure"
+  )
+gg2 <- f_graph_potential_percent_add_world(
+  gg2,
+  temp_manure_to_croplands_world, 
+  `human excretions % of manure applied to croplands`
+)
+
+
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "Human excretions (80% recovery) compared to manure applied to croplands",
+    subtitle = standard_subtitle,
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_excretions_vs_manure_on_croplands",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+:::
+
+
+
+
+
+
+
+
+
+
+# % manure excreted
+
+```{r}
+f_prepare_manue_excreted <- function(dataset){
+  #prepare inputs file
+  dataset <- dataset %>%
+    select(
+      #country and population
+      country, `Population (Mhab)`, 
+      
+      #total excretions,
+      `human excretions (ktN)`, `human excretions % of livestock excretion`,
+      
+      #inputs to croplands
+      `All Animals Amount excreted in manure (ktN)`,
+      `non ruminants Amount excreted in manure (ktN)`,
+      `ruminants Amount excreted in manure (ktN)`
+  
+      
+      ) %>%
+    
+    gather(
+      input_flow, value, 
+      c(`non ruminants Amount excreted in manure (ktN)`,
+        `ruminants Amount excreted in manure (ktN)`)
+      ) %>%
+    
+    mutate(
+      input_flow = gsub(" Amount excreted in manure \\(ktN\\)", "", input_flow)
+      ) 
+  
+  #order ruminants / non ruminants legend
+  dataset$input_flow <- factor(
+    dataset$input_flow,
+    levels = c("ruminants", "non ruminants")
+  )
+  
+  return(dataset)
+  
+}
+temp_manure_excreted <- f_prepare_manue_excreted(FAO_countries_2015_2020)
+temp_manure_excreted_world <- f_prepare_manue_excreted(FAO_world_2015_2020)
+```
+
+
+::: panel-tabset
+## 2015-2020
+
+```{r fig.height=8}
+#select countries > 50 Mhab and rich industrialized countries
+temp <- f_select_countries(temp_manure_excreted, c(countries_to_select_large, countries_to_select_western))
+
+#highlight rich industrialized countries
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+#Graphs
+gg1 <- 
+  f_graph_comparison_inputs_per_cap(
+    temp, value, 
+    `All Animals Amount excreted in manure (ktN)`, 
+    `human excretions (ktN)` 
+    ) +
+  coord_cartesian(xlim = c(55, 0)) +
+  labs(
+    fill="manure excreted", subtitle = "human excretions compared manure"
+    )
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_manure_excreted_world, value,`human excretions (ktN)`
+  )
+
+gg2 <- 
+  f_graph_potential_percent(
+    temp %>% select(-c(value, input_flow)) %>% distinct(), 
+    `human excretions % of livestock excretion`, 
+    `All Animals Amount excreted in manure (ktN)`
+    ) +
+  coord_cartesian(xlim = c(0, 1.6))  +
+  labs(
+    subtitle = "human excretions as % of manure"
+    )
+gg2 <- f_graph_potential_percent_add_world(
+  gg2, temp_manure_excreted_world %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excretions % of livestock excretion`
+)
+
+
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "Human excretions compared to manure excretions",
+    subtitle = standard_subtitle,
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_excretions_vs_manure",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+:::
+
+
+
+
+
+
+
+
+# Share animal / vegetal food supply
+
+https://ourworldindata.org/grapher/daily-protein-supply-from-animal-and-plant-based-foods
+
+```{r}
+supply_veg_anim <- read_csv("source/daily-protein-supply-from-animal-and-plant-based-foods.csv")
+supply_veg_anim_world <- supply_veg_anim %>% filter(Entity=="World")
+
+f_prepare_food_supply <- function(dataset){
+  
+  dataset <- dataset %>%
+    select(
+      country = Entity, Year, 
+      animal = `Animal Products | 00002941 || Food available for consumption | 0674pc || grams of protein per day per capita`,
+      vegetal = `Vegetal Products | 00002903 || Food available for consumption | 0674pc || grams of protein per day per capita`
+      ) %>%
+    mutate(
+      animal = animal*365/1000/6.25,
+      vegetal = vegetal*365/1000/6.25,
+      total_kgN_per_cap = animal + vegetal,
+      share_vegetal = vegetal/total_kgN_per_cap
+      )
+  
+  dataset <- dataset %>%
+    filter(Year>2014 & Year <2021) %>%
+    select(-Year) %>%
+    group_by(country) %>%
+    summarise_all(mean)
+  
+  dataset <- dataset %>%
+    gather(
+      animal_or_vegetal, animal_or_vegetal_value, vegetal, animal
+    )
+  
+  return(dataset)
+  
+}
+supply_veg_anim <- f_prepare_food_supply(supply_veg_anim)
+supply_veg_anim_world <- f_prepare_food_supply(supply_veg_anim_world)
+
+
+
+supply_veg_anim <- supply_veg_anim %>%
+  mutate(
+    country = case_when(
+      country=="United Kingdom" ~ "UK",
+      country=="United States" ~ "USA",
+      country=="South Korea" ~ "Korea",
+      country=="Vietnam" ~ "Viet Nam",
+      country=="Democratic Republic of Congo" ~ "Dem. Rep. Congo",
+      T ~ country
+    )
+  )
+
+```
+
+
+```{r}
+f_graph_N_supply <- function(dataset, dataset_world, var_animal_or_vegetal_value, var_share_vegetal){
+  
+  gg1 <- ggplot(dataset) +
+    #countries
+    geom_col(
+      aes(animal_or_vegetal_value, reorder(country, {{ var_share_vegetal }}), fill={{ var_animal_or_vegetal_value }}, alpha=highlight),
+      position = "fill", color="black"
+      ) +
+    scale_alpha_manual(values=c("No"=.4, "Yes"=.9), guide = FALSE) +
+    geom_text(
+      data = dataset %>% select(country, {{ var_share_vegetal }}) %>% distinct(),
+      aes(0, country, label = paste0(round({{ var_share_vegetal }}*100), "%")),
+      hjust=1, fontface="italic"
+    ) +
+    
+    #world
+    geom_col(
+      data = dataset_world,
+      aes(animal_or_vegetal_value, country, fill={{ var_animal_or_vegetal_value }}),
+      position = "fill", color="black", alpha=.4,
+      ) +
+    geom_text(
+      data = dataset_world %>% select(country, {{ var_share_vegetal }}) %>% distinct(),
+      aes(0, country, label = paste0(round({{ var_share_vegetal }}*100), "%")),
+      hjust=1, fontface="italic"
+    ) +
+    
+    
+    scale_x_reverse(
+      labels = scales::percent
+    ) +
+    theme(
+      axis.ticks.y = element_blank(),
+      axis.text.y = element_blank(),
+      axis.line.y = element_blank(),
+      legend.position = "top"
+    ) +
+    labs(
+      y="", x="", fill="", subtitle = "relative shares"
+      )
+  
+  gg2 <- ggplot(dataset) +
+    #countries
+    geom_col(
+      aes(animal_or_vegetal_value, reorder(country, {{ var_share_vegetal }}), fill={{ var_animal_or_vegetal_value }}, alpha=highlight)
+      )+
+    scale_alpha_manual(values=c("No"=.4, "Yes"=.9), guide = FALSE) +
+    geom_col(
+      data = dataset %>% select(country, total_kgN_per_cap, {{ var_share_vegetal }}) %>% distinct(),
+      aes(total_kgN_per_cap, reorder(country, {{ var_share_vegetal }})),
+      fill="transparent", color="black"
+      ) +
+    geom_text(
+      data = dataset %>% select(country, total_kgN_per_cap) %>% distinct(),
+      aes(total_kgN_per_cap, country, label = round(total_kgN_per_cap, 1)),
+      hjust=-.3, fontface="italic"
+    ) +
+    
+    #world
+    geom_col(
+      data = dataset_world,
+      aes(animal_or_vegetal_value, country, fill={{ var_animal_or_vegetal_value }}),
+      alpha=.4
+      )+
+    geom_col(
+      data = dataset_world %>% select(country, total_kgN_per_cap, {{ var_share_vegetal }}) %>% distinct(),
+      aes(total_kgN_per_cap, country),
+      fill="transparent", color="black"
+      ) +
+    geom_text(
+      data = dataset_world %>% select(country, total_kgN_per_cap) %>% distinct(),
+      aes(total_kgN_per_cap, country, label = round(total_kgN_per_cap, 1)),
+      hjust=-.3, fontface="italic"
+    ) +
+    
+    
+    
+    theme(
+      legend.position = "none",
+      axis.text.y = element_text(hjust=0.5)
+      ) +
+    labs(y="", x="kgN/cap", subtitle = "absolute quantities") +
+    xlim(0, 8.5)
+  
+  gg <- gg1 + gg2 + 
+    plot_annotation(
+      title = "Repartition of vegetal and animal products in N food supply",
+      subtitle = standard_subtitle,
+      caption = Source
+      )
+  
+  return(gg)
+}
+```
+
+
+
+```{r fig.height=8}
+temp <- supply_veg_anim %>% filter(country %in% c(countries_to_select_western, countries_to_select_large))
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+gg <- f_graph_N_supply(temp, supply_veg_anim_world, animal_or_vegetal, share_vegetal)
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "food_supply_animal_vegetal",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+:::
+
+# Share ruminants vs non ruminants
+
+```{r}
+temp <- f_select_countries(FAO_countries_2015_2020, c(countries_to_select_large, countries_to_select_western))
+
+
+f_prepare_share_ruminants <- function(dataset) {
+  temp <- dataset %>%
+    select(
+      country,
+      `All Animals Amount excreted in manure (ktN)`, 
+      `non ruminants Amount excreted in manure (ktN)`, 
+      `ruminants Amount excreted in manure (ktN)`
+      ) %>%
+    mutate(
+      `non ruminants` = `non ruminants Amount excreted in manure (ktN)`/`All Animals Amount excreted in manure (ktN)`,
+      ruminants = `ruminants Amount excreted in manure (ktN)`/`All Animals Amount excreted in manure (ktN)`
+    ) %>%
+    select(country, `non ruminants`, ruminants)
+  
+  temp$country <- factor(
+    temp$country,
+    levels = arrange(temp, `non ruminants`) %>% pull(country)
+  )
+  
+  temp <- temp %>%
+    gather(
+      livestock_type, value, `non ruminants`, ruminants
+    )
+  
+  temp$livestock_type <- factor(
+    temp$livestock_type,
+    levels = c("ruminants", "non ruminants")
+  )
+  
+  return(temp)
+  
+}
+temp <- f_prepare_share_ruminants(temp)
+temp_world <- f_prepare_share_ruminants(FAO_world_2015_2020)
+temp <- f_highlight_countries(temp, countries_to_select_western)
+
+
+
+
+gg <- ggplot(temp) +
+  
+  #countries bars and labels
+  geom_col(aes(value, country, fill=livestock_type, alpha=highlight)) +
+  scale_alpha_manual(values=c("No"=.4, "Yes"=1), guide = FALSE) +
+  geom_text(
+    data = temp %>% filter(livestock_type=="non ruminants"),
+    aes(0, country, label = paste(round(value*100), "%")),
+    hjust=0
+  ) +
+  
+  #world
+  geom_col(
+    data = temp_world,
+    aes(value, country, fill=livestock_type),
+    alpha=.7
+    ) +
+  geom_text(
+    data = temp_world %>% filter(livestock_type=="non ruminants"),
+    aes(0, country, label = paste(round(value*100), "%")),
+    hjust=0
+  ) +
+  
+  #other options
+  scale_x_continuous(
+    labels = scales::percent
+  ) +
+  labs(
+    x="", y="", fill="",
+    subtitle = standard_subtitle,
+    title = "% of non ruminants excretions in total livestock excretions",
+    caption = Source
+    ) 
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_non_ruminants_excretions",
+  resolution_dpi, grahps_height, 7
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- # OLD  comparison synthetic and manure total vs cropland-->
+
+<!-- ```{r} -->
+<!-- f_graph_comparison_inputs_variables <- function( -->
+<!--     dataset, variable_1, variable_2, -->
+<!--     x_min_zoom, x_max_zoom, y_min_zoom, y_max_zoom, -->
+<!--     x_min_panel, x_max_panel, y_min_panel, y_max_panel, -->
+<!--     x_max_main_plot, y_max_main_plot -->
+<!--     ){ -->
+
+<!--   gg1 <- ggplot(temp) + -->
+<!--     geom_point( -->
+<!--       aes( -->
+<!--         {{ variable_1 }}/`Population (Mhab)` ,  -->
+<!--         {{ variable_2 }}/`Population (Mhab)`  -->
+<!--         ) -->
+<!--       ) + -->
+<!--     geom_abline( -->
+<!--       slope=1, intercept = 0 -->
+<!--       ) + -->
+<!--     geom_text_repel( -->
+<!--       data = temp %>% -->
+<!--         filter( -->
+<!--           ({{ variable_1 }}/`Population (Mhab)` >x_max_zoom) | ({{ variable_2 }}/`Population (Mhab)` > y_max_zoom) -->
+<!--           ), -->
+<!--       aes( -->
+<!--         {{ variable_1 }}/`Population (Mhab)` ,  -->
+<!--         {{ variable_2 }}/`Population (Mhab)` , label=country -->
+<!--         ), -->
+<!--       force=20, size=3 -->
+<!--       ) + -->
+<!--     xlim(0, x_max_main_plot) + ylim(0, y_max_main_plot)  -->
+<!--   gg1 -->
+
+<!--   gg2 <- ggplot(temp) + -->
+<!--     geom_point( -->
+<!--       aes( -->
+<!--         {{ variable_1 }}/`Population (Mhab)` ,  -->
+<!--         {{ variable_2 }}/`Population (Mhab)`  -->
+<!--         ) -->
+<!--       ) + -->
+<!--     geom_abline( -->
+<!--       slope=1, intercept = 0 -->
+<!--       ) + -->
+<!--     geom_text_repel( -->
+<!--       aes( -->
+<!--         {{ variable_1 }}/`Population (Mhab)`,  -->
+<!--         {{ variable_2 }}/`Population (Mhab)`, label=country -->
+<!--         ), -->
+<!--       force=20, size=3 -->
+<!--       ) + -->
+<!--     xlim(0, x_max_zoom) +  -->
+<!--     ylim(0, y_max_zoom) + -->
+<!--     labs(x="", y="") -->
+<!--   gg2 -->
+
+
+<!--   gg <- gg1 +  -->
+<!--     annotation_custom( -->
+<!--       ggplotGrob(gg2), -->
+<!--       #position of zoomed pane -->
+<!--       xmin=x_min_panel, xmax=x_max_panel, ymin=y_min_panel, ymax=y_max_panel -->
+<!--     ) + -->
+<!--     #rectangle highlighting zoom panel -->
+<!--     annotate( -->
+<!--       geom="rect",  -->
+<!--       xmin=x_min_panel, xmax=x_max_panel, ymin=y_min_panel, ymax=y_max_panel,  -->
+<!--       fill="transparent", color="black" -->
+<!--       ) + -->
+<!--     #zoom zone -->
+<!--     annotate( -->
+<!--       geom="rect",  -->
+<!--       xmin=x_min_zoom, xmax=x_max_zoom,  ymin=y_min_zoom, ymax=y_max_zoom,  -->
+<!--       fill="transparent", color="black" -->
+<!--       ) + -->
+<!--     #lines linking zoom zone and panel -->
+<!--     annotate( -->
+<!--       geom="segment",  -->
+<!--       x=x_min_zoom, xend=x_min_zoom, y=y_max_zoom, yend=y_min_panel,  -->
+<!--       linetype="dashed" -->
+<!--     ) + -->
+<!--     annotate( -->
+<!--       geom="segment",  -->
+<!--       x=x_max_zoom, xend=x_max_panel, y=y_max_zoom, yend=y_min_panel,  -->
+<!--       linetype="dashed" -->
+<!--     ) -->
+
+<!--   return(gg) -->
+<!-- } -->
+<!-- ``` -->
+
+
+
+<!-- ::: panel-tabset -->
+<!-- ### Large countries -->
+
+<!-- ```{r} -->
+<!-- temp <- FAO_countries_2015_2020 %>%  -->
+<!--   filter(`Population (Mhab)`>50) -->
+
+<!-- f_graph_comparison_inputs_variables( -->
+<!--   temp, `All Animals Manure applied to soils (ktN)`, `N croplands Manure applied to Soils (ktN)`, -->
+<!--   x_min_zoom =  0, x_max_zoom = 5, y_min_zoom = 0, y_max_zoom = 5, -->
+<!--   x_min_panel = 0, x_max_panel = 12, y_min_panel = 12, y_max_panel = 20, -->
+<!--   x_max_main_plot = 20, y_max_main_plot = 20 -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ### Rich industrialized countries -->
+
+<!-- ```{r} -->
+<!-- temp <- f_select_countries(FAO_countries_2015_2020, countries_to_select_western) -->
+
+<!-- f_graph_comparison_inputs_variables( -->
+<!--   temp, `All Animals Manure applied to soils (ktN)`, `N croplands Manure applied to Soils (ktN)`, -->
+<!--   x_min_zoom =  0, x_max_zoom = 10, y_min_zoom = 0, y_max_zoom = 10, -->
+<!--   x_min_panel = 0, x_max_panel = 40, y_min_panel = 35, y_max_panel = 60, -->
+<!--   x_max_main_plot = 60, y_max_main_plot = 60 -->
+<!-- ) -->
+
+
+<!-- f_graph_ratio(temp, `N croplands Manure applied to Soils (ktN)`, `All Animals Manure applied to soils (ktN)`) + -->
+<!--   labs(title = "Cropland manure to soils / Total manure to soils") -->
+
+<!-- ``` -->
+
+
+<!-- ::: panel-tabset -->
+<!-- ### Large countries -->
+
+<!-- ```{r} -->
+<!-- temp <- FAO_countries_2015_2020 %>%  -->
+<!--   filter(`Population (Mhab)`>50) -->
+
+<!-- f_graph_comparison_inputs_variables( -->
+<!--   temp, `N mineral fertilization (ktN)`, `N croplands Mineral fertilizers (ktN)` , -->
+<!--   x_min_zoom =  -100, x_max_zoom = 0, y_min_zoom = -100, y_max_zoom = 0, -->
+<!--   x_min_panel = -100, x_max_panel = -50, y_min_panel = -100, y_max_panel = -50, -->
+<!--   x_max_main_plot = 40, y_max_main_plot = 40 -->
+<!-- ) -->
+
+<!-- f_graph_ratio(temp, `N croplands Mineral fertilizers (ktN)`, `N mineral fertilization (ktN)`) + -->
+<!--   labs(title = "Cropland fertilization / Total fertilization") -->
+<!-- ``` -->
+
+<!-- ### Rich industrialized countries -->
+
+<!-- ```{r} -->
+<!-- temp <- f_select_countries(FAO_countries_2015_2020, countries_to_select_western) -->
+
+<!-- f_graph_comparison_inputs_variables( -->
+<!--   temp, `N mineral fertilization (ktN)`, `N croplands Mineral fertilizers (ktN)` , -->
+<!--   x_min_zoom =  -100, x_max_zoom = 0, y_min_zoom = -100, y_max_zoom = 0, -->
+<!--   x_min_panel = -100, x_max_panel = -50, y_min_panel = -100, y_max_panel = -50, -->
+<!--   x_max_main_plot = 100, y_max_main_plot = 100 -->
+<!-- ) -->
+
+<!-- f_graph_ratio(temp, `N croplands Mineral fertilizers (ktN)`, `N mineral fertilization (ktN)`) + -->
+<!--   labs(title = "Cropland fertilization / Total fertilization") -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+
+
+
+
+
+
+
+
+
+
+<!-- # recovery of manure -->
+
+<!-- ::: panel-tabset -->
+<!-- ## all animals -->
+
+<!-- ::: panel-tabset -->
+<!-- ### treated / excreted -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `All Animals Manure management (treated) (ktN)` / `All Animals Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="recovery of N excreted by animals", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### spread / treated -->
+
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   1-`All Animals Manure applied to soils (ktN)`/ `All Animals Manure management (treated) (ktN)`  -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="losses during storage of N excreted by animals", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### total recovery -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `All Animals Manure applied to soils (ktN)` / `All Animals Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="total recovery of N excreted by animals", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ## ruminants -->
+
+<!-- ::: panel-tabset -->
+<!-- ### treated / excreted -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `ruminants Manure management (treated) (ktN)` / `ruminants Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="recovery of N excreted by ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### spread / treated -->
+
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   1-`ruminants Manure applied to soils (ktN)`/ `ruminants Manure management (treated) (ktN)`  -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="losses during storage of N excreted by ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### total recovery -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `ruminants Manure applied to soils (ktN)` / `ruminants Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="total recovery of N excreted by ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ## non ruminants -->
+
+<!-- ::: panel-tabset -->
+<!-- ### treated / excreted -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `non ruminants Manure management (treated) (ktN)` / `non ruminants Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="recovery of N excreted by non ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### spread / treated -->
+
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   1-`non ruminants Manure applied to soils (ktN)`/ `non ruminants Manure management (treated) (ktN)`  -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="losses during storage of N excreted by non ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ### total recovery -->
+
+<!-- ```{r} -->
+<!-- f_graph_countries_bar( -->
+<!--   FAO_countries_2015_2020,  -->
+<!--   `non ruminants Manure applied to soils (ktN)` / `non ruminants Amount excreted in manure (ktN)` -->
+<!--   ) + -->
+<!--   labs( -->
+<!--     y="total recovery of N excreted by non ruminants", -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- ::: -->
+<!-- ::: -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r remove_all_objects_in_environment}
+rm(list = ls())
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
