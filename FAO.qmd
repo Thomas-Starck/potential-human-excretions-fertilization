@@ -497,7 +497,6 @@ f_graph_manure_comparison(
   )
 ```
 
-
 :::
 
 :::
@@ -784,7 +783,7 @@ f_graph_ruminants <- function(
   temp <- temp %>%
     mutate(
       variable = case_when(
-        variable == "Manure applied to soils (ktN)" ~ "Collected and\napplied to soils\n",
+        variable == "Manure applied to soils (ktN)" ~ "Collected and spread\non agricultural land\n",
         variable == "Losses from manure treated (ktN)" ~ "Collected but volatilized\nduring storage\n",
         variable == "Manure left on pasture (ktN)" ~ "\nLeft on pasture\n",
         T ~ variable
@@ -820,7 +819,7 @@ f_graph_ruminants <- function(
     #labels
     labs(
       color="", x="", y="ktN",
-      fill="repartition of\nexcreted manure",
+      fill="repartition of N in\nexcreted manure",
       title = country_selected,
       caption = "Source: FAOSTAT\ncomputation by Thomas Starck"
     ) +
@@ -829,7 +828,7 @@ f_graph_ruminants <- function(
   return(gg)
 }
 
-ordered_manure_categories <- c("\nLeft on pasture\n", "Collected but volatilized\nduring storage\n", "Collected and\napplied to soils\n")
+ordered_manure_categories <- c("\nLeft on pasture\n", "Collected but volatilized\nduring storage\n", "Collected and spread\non agricultural land\n")
 ```
 
 ::: panel-tabset
@@ -884,8 +883,17 @@ f_graph_ruminants(
 ### countries comparison
 
 ```{r}
+#rename taiwan
+temp <- data_manure_countries_simple %>%
+  mutate(
+    country = case_when(
+      country == "China, Taiwan Province of" ~ "Taiwan",
+      T ~ country
+    )
+  )
+
 f_graph_ruminants(
-  data_manure_countries_simple, c("China", "United States of America", "France"),
+  temp, c("Taiwan", "Egypt", "France"),
   ordered_manure_categories,
   "Amount excreted in manure (ktN)",
   c("ruminants", "non ruminants")
@@ -894,7 +902,7 @@ f_graph_ruminants(
   labs(title = "", caption = "based on FAOSTAT data")
 
 f_save_graph_pdf_png(
-  gg, "graph/potential/", "historical_manure_fate_China_USA_France",
+  gg, "graph/potential/", "historical_manure_fate_Taiwan_Egypt_France",
   350, 6, 8
 )
 ```
@@ -1277,11 +1285,12 @@ f_graph_inputs_outputs <- function(country_selected, nutrient_name, nutrient_lab
 
 
 #save graph with example countries for thesis manuscript
-gg <- f_graph_inputs(c("France", "Italy", "Japan"), `Cropland nitrogen (t)`, "N") + 
+gg <- f_graph_inputs(c("France", "Myanmar", "Turkey"), `Cropland nitrogen (t)`, "N") + 
   facet_wrap(vars(country), ncol=1, scales = "free_y") +
-  labs(title = "N inputs on croplands", caption="based on FAOSTAT data for 2015-2020")
+  labs(title = "N inputs on croplands", caption="based on FAOSTAT data")
+gg
 f_save_graph_pdf_png(
-  gg, "graph/potential/", "historical_inputs_France_Italy_Japan",
+  gg, "graph/potential/", "historical_inputs_France_Myanmar_Turkey",
   350, 6, 8
 )
 ```

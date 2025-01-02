@@ -212,7 +212,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co">#additional packages loaded</span></span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggrepel) <span class="co">#for geom_text_repel</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork) <span class="co">#for multiple plots</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork) <span class="co">#for multiple plots using +</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Source <span class="ot">&lt;-</span> <span class="st">"based on FAOSTAT data for 2015-2020"</span></span>
 <span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>standard_subtitle <span class="ot">&lt;-</span> <span class="st">"highlighted: rich industrialized countries"</span></span>
@@ -498,7 +498,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">y_label_supply =</span> <span class="dv">6</span>, <span class="at">y_label_surveys =</span> <span class="fl">4.5</span>, <span class="at">y_label_waste =</span> <span class="fl">1.3</span>,</span>
 <span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="dv">1</span>, <span class="at">minor_breaks =</span> .<span class="dv">5</span></span>
 <span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y=</span><span class="st">"kgN/cap/year"</span>)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="fu">expression</span>(<span class="st">"kgN"</span> <span class="sc">%.%</span> capita<span class="sc">^-</span><span class="dv">1</span> <span class="sc">%.%</span> year<span class="sc">^-</span><span class="dv">1</span>))</span>
 <span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>gg</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
@@ -751,7 +751,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-87"><a href="#cb12-87" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor.x=</span> <span class="fu">element_line</span>(),</span>
 <span id="cb12-88"><a href="#cb12-88" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">+</span></span>
 <span id="cb12-89"><a href="#cb12-89" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
-<span id="cb12-90"><a href="#cb12-90" aria-hidden="true" tabindex="-1"></a>      <span class="at">y=</span><span class="st">""</span>, <span class="at">x=</span><span class="st">"kgN/capita"</span>, <span class="at">color=</span><span class="st">""</span>, <span class="at">fill=</span><span class="st">""</span></span>
+<span id="cb12-90"><a href="#cb12-90" aria-hidden="true" tabindex="-1"></a>      <span class="at">y=</span><span class="st">""</span>, <span class="at">x=</span><span class="fu">expression</span>(<span class="st">"kgN"</span> <span class="sc">%.%</span> capita<span class="sc">^-</span><span class="dv">1</span> <span class="sc">%.%</span> year<span class="sc">^-</span><span class="dv">1</span>), <span class="at">color=</span><span class="st">""</span>, <span class="at">fill=</span><span class="st">""</span></span>
 <span id="cb12-91"><a href="#cb12-91" aria-hidden="true" tabindex="-1"></a>      ) </span>
 <span id="cb12-92"><a href="#cb12-92" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb12-93"><a href="#cb12-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(gg)</span>
@@ -961,13 +961,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>    <span class="at">subgroup =</span> <span class="fu">case_when</span>(</span>
 <span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>      subgroup <span class="sc">==</span> <span class="st">"Manure left on pasture"</span> <span class="sc">~</span> <span class="st">"Left on pasture"</span>,</span>
 <span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>      subgroup <span class="sc">==</span> <span class="st">"Losses from manure treated"</span> <span class="sc">~</span> <span class="st">"Collected but volatilized</span><span class="sc">\n</span><span class="st">during storage"</span>,</span>
-<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>      subgroup <span class="sc">==</span> <span class="st">"Manure applied to soils"</span> <span class="sc">~</span> <span class="st">"Collected and</span><span class="sc">\n</span><span class="st">applied to soils"</span></span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>      subgroup <span class="sc">==</span> <span class="st">"Manure applied to soils"</span> <span class="sc">~</span> <span class="st">"Collected and spread</span><span class="sc">\n</span><span class="st">on agricultural land"</span></span>
 <span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a>  <span class="co">#order categories for legend</span></span>
-<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>  variable_subcategories <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Left on pasture"</span>, <span class="st">"Collected but volatilized</span><span class="sc">\n</span><span class="st">during storage"</span>, <span class="st">"Collected and</span><span class="sc">\n</span><span class="st">applied to soils"</span>)</span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>  variable_subcategories <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Left on pasture"</span>, <span class="st">"Collected but volatilized</span><span class="sc">\n</span><span class="st">during storage"</span>, <span class="st">"Collected and spread</span><span class="sc">\n</span><span class="st">on agricultural land"</span>)</span>
 <span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>  temp<span class="sc">$</span>subgroup <span class="ot">&lt;-</span> <span class="fu">factor</span>(</span>
 <span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>    temp<span class="sc">$</span>subgroup,</span>
@@ -1025,8 +1025,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>    <span class="co">#labels</span></span>
 <span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
 <span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>        <span class="at">color=</span><span class="st">""</span>, <span class="at">x=</span><span class="st">""</span>, <span class="at">y=</span><span class="st">""</span>,</span>
-<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>        <span class="at">fill=</span><span class="st">"repartition of</span><span class="sc">\n</span><span class="st">excreted manure"</span>,</span>
-<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Share of excreted manure collected and applied to soils"</span>,</span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>        <span class="at">fill=</span><span class="st">"repartition of N in</span><span class="sc">\n</span><span class="st">excreted manure"</span>,</span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Share of excreted manure collected and applied to agricultural land"</span>,</span>
 <span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>        <span class="at">subtitle =</span> standard_subtitle,</span>
 <span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>        <span class="at">caption =</span> Source</span>
 <span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">+</span></span>
@@ -1108,7 +1108,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>gg <span class="ot">&lt;-</span> gg1 <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">axis.text.y =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span> gg2 <span class="sc">+</span> </span>
 <span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(</span>
-<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Maximum potential substitution of synthetic fertilizers by human urine"</span>,</span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Comparison of N in urine to synthetic fertilizers consumption"</span>,</span>
 <span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> standard_subtitle,</span>
 <span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> Source</span>
 <span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a>    )</span>
@@ -1315,15 +1315,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>gg1 <span class="ot">&lt;-</span> <span class="fu">f_graph_ratio</span>(temp, FAO_world_2015_2020, <span class="st">`</span><span class="at">N croplands Manure applied to Soils (ktN)</span><span class="st">`</span>, <span class="st">`</span><span class="at">All Animals Manure applied to soils (ktN)</span><span class="st">`</span>) <span class="sc">+</span></span>
 <span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"manure applied to soils"</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"...manure"</span></span>
 <span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>gg2 <span class="ot">&lt;-</span> <span class="fu">f_graph_ratio</span>(temp, FAO_world_2015_2020, <span class="st">`</span><span class="at">N croplands Mineral fertilizers (ktN)</span><span class="st">`</span>, <span class="st">`</span><span class="at">N mineral fertilization (ktN)</span><span class="st">`</span>) <span class="sc">+</span></span>
 <span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">title  =</span> <span class="st">"synthetic fertilizers"</span>,</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">title  =</span> <span class="st">"...synthetic fertilizers"</span>,</span>
 <span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>gg <span class="ot">&lt;-</span> gg1 <span class="sc">+</span> gg2 <span class="sc">+</span></span>
 <span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(</span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">title =</span> <span class="st">"Cropland fertilization as % of Total fertilization"</span>,</span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">title =</span> <span class="st">"Cropland N fertilization as % of Agricultural Land N fertilization, for..."</span>,</span>
 <span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>      <span class="at">subtitle =</span> standard_subtitle,</span>
 <span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>      <span class="at">caption =</span> Source</span>
 <span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>      )</span>
@@ -1656,7 +1656,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
 <span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">55</span>, <span class="dv">0</span>)) <span class="sc">+</span></span>
 <span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill=</span><span class="st">"manure excreted"</span>, <span class="at">subtitle =</span> <span class="st">"human excretions compared manure"</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill=</span><span class="st">"manure excreted"</span>, <span class="at">subtitle =</span> <span class="st">"human excretions compared to manure"</span></span>
 <span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a>gg1 <span class="ot">&lt;-</span> <span class="fu">f_graph_comparison_inputs_per_cap_add_world</span>(</span>
 <span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>  gg1,</span>
@@ -1847,7 +1847,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb36-79"><a href="#cb36-79" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"none"</span>,</span>
 <span id="cb36-80"><a href="#cb36-80" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.y =</span> <span class="fu">element_text</span>(<span class="at">hjust=</span><span class="fl">0.5</span>)</span>
 <span id="cb36-81"><a href="#cb36-81" aria-hidden="true" tabindex="-1"></a>      ) <span class="sc">+</span></span>
-<span id="cb36-82"><a href="#cb36-82" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y=</span><span class="st">""</span>, <span class="at">x=</span><span class="st">"kgN/cap"</span>, <span class="at">subtitle =</span> <span class="st">"absolute quantities"</span>) <span class="sc">+</span></span>
+<span id="cb36-82"><a href="#cb36-82" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y=</span><span class="st">""</span>, <span class="at">x=</span><span class="fu">expression</span>(<span class="st">"kgN"</span> <span class="sc">%.%</span> capita<span class="sc">^-</span><span class="dv">1</span> <span class="sc">%.%</span> year<span class="sc">^-</span><span class="dv">1</span>), <span class="at">subtitle =</span> <span class="st">"absolute quantities"</span>) <span class="sc">+</span></span>
 <span id="cb36-83"><a href="#cb36-83" aria-hidden="true" tabindex="-1"></a>    <span class="fu">xlim</span>(<span class="dv">0</span>, <span class="fl">8.5</span>)</span>
 <span id="cb36-84"><a href="#cb36-84" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb36-85"><a href="#cb36-85" aria-hidden="true" tabindex="-1"></a>  gg <span class="ot">&lt;-</span> gg1 <span class="sc">+</span> gg2 <span class="sc">+</span> </span>

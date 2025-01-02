@@ -1,9 +1,16 @@
+/.quarto/
 .Rproj.user
+
 .Rhistory
 .RData
 .Ruserdata
 
-/.quarto/
+# ignore local renv library (loaded with renv::restore)
+renv/library/
 
 # ignore all .DS_Store
 **/.DS_Store
+
+# Other potential temporary files
+*.log
+*.tmp
