@@ -1081,7 +1081,7 @@ f_save_graph_pdf_png(
 
 
 
-# % manure applie handled and applied to soils (croplands and grasslands)
+# % manure handled and applied to soils (croplands and grasslands)
 
 
 ```{r}
@@ -1607,7 +1607,6 @@ f_save_graph_pdf_png(
 ```
 
 
-:::
 
 # Share ruminants vs non ruminants
 

@@ -1,3 +1,18 @@
 ---
-title: ""
+title: "Home"
+bibliography: references.bib  
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=F, message=F, results=F, dev='svg')
+```
+
+This website describes the data sources and processing to get the results presented in Chapter 5 of @starck2024towards.
+
+It assesses, for a panel of countries, the potential of nitrogen in human excretions if it was used as fertilizers. For this, it relies on FAOSTAT data.
+
+In the tab *Prepare FAOSTAT data*, I present and pre-process the FAOSTAT data that I use (about livestock manure, use of mineral fertilizers, crop nutrient balance, and food supply estimates).
+
+In *Results*, I present the comparison between N in human excreta and several N fertilization sources: manure, synthetic fertilizers and total nutrient inputs to croplands.
+
+The source data, output data, and code to generate it is accessible on this [github repository](https://github.com/Thomas-Starck/potential-human-excretions-fertilization){target="_blank"}, which produced this website. It is also associated to a permanent repository on zenodo at [https://doi.org/10.5281/zenodo.14591081](https://doi.org/10.5281/zenodo.14591081){target="_blank"}.

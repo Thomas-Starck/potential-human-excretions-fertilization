@@ -3,17 +3,19 @@ project:
   output-dir: docs
   
 website:
-  title: ""
+  title: "potential-human-excretions-fertilization"
   navbar:
     left:
       - href: index.qmd
         text: Home
-      - text: "Present and prepare FAOSTAT data"
+      - text: "Prepare FAOSTAT data"
         href: FAO.qmd
-      - text: "Results: Potential of humand excretions used as fertilizers"
+      - text: "Results"
         href: potential.qmd
     right:
       - icon: github
+        href: https://github.com/Thomas-Starck/potential-human-excretions-fertilization
+          
 
 format:
   html:
