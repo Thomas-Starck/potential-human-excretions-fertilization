@@ -39,13 +39,14 @@ conversion_K2O_K <- 2*39/(2*39+16)
 conversion_N_protein <- 6.25
 
 
-#function to clean Turkey and Côte d'Ivoire names not rendered by encoding
+#function to clean Turkey and Côte d'Ivoire names not rendered by encoding and not same encoding in all the source files
 f_correct_encoding <- function(dataset){
   dataset <- dataset %>%
     mutate(
       Area = case_when(
         Area=="T\374rkiye"  ~ "Turkey",
-        Area=="C\364te d'Ivoire"   ~ "Cote d'Ivoire",
+        Area=="Türkiye"  ~ "Turkey",
+        Area=="C\364te d'Ivoire"   ~ "Côte d'Ivoire",
         T~ Area
       )
     )
@@ -102,11 +103,11 @@ f_prepare_manure <- function(dataset){
 
   data <- dataset %>%
     select(
-      country = Area, species = Item, variable = Element, Unit, Y1961:Y2021
+      country = Area, species = Item, variable = Element, Unit, Y1961:Y2022
     ) %>%
     #years in 1 column
     gather(
-      Year, value, Y1961:Y2021
+      Year, value, Y1961:Y2022
     ) %>%
     mutate(
       #gather units in variable name
@@ -950,12 +951,12 @@ f_prepare_fertilizers <- function(dataset){
 
     #selects variables of interest, rename them
     select(
-      country = Area, nutrient = Item, variable = Element, Unit, Y1961:Y2021
+      country = Area, nutrient = Item, variable = Element, Unit, Y1961:Y2022
       ) %>%
 
     #years in 1 column
     gather(
-      Year, value, Y1961:Y2021
+      Year, value, Y1961:Y2022
       ) %>%
 
     mutate(
@@ -994,16 +995,16 @@ f_prepare_fertilizers <- function(dataset){
     #change values from kg to kt
     mutate(
       `Agricultural Use (t)` = `Agricultural Use (t)`/10^3,
-      `Export Quantity (t)` = `Export Quantity (t)`/10^3,
-      `Import Quantity (t)` = `Import Quantity (t)`/10^3,
+      `Export quantity (t)` = `Export quantity (t)`/10^3,
+      `Import quantity (t)` = `Import quantity (t)`/10^3,
       `Production (t)` = `Production (t)`/10^3
       ) %>%
 
     #rename variables accordingly
     mutate(
       `Agricultural Use (kt)` = `Agricultural Use (t)`,
-      `Export Quantity (kt)` = `Export Quantity (t)`,
-      `Import Quantity (kt)` = `Import Quantity (t)`,
+      `Export quantity (kt)` = `Export quantity (t)`,
+      `Import quantity (kt)` = `Import quantity (t)`,
       `Production (kt)` = `Production (t)`
       )
 
@@ -1034,7 +1035,7 @@ ggplot(data_fertilizers_countries %>% filter(country=="France")) +
   geom_line(
     aes(
       Year,
-      (-`Export Quantity (kt)` + `Import Quantity (kt)` + `Production (kt)`),
+      (-`Export quantity (kt)` + `Import quantity (kt)` + `Production (kt)`),
       color = "prod - export + import",
       )
     ) +
@@ -1057,10 +1058,10 @@ temp <- data_fertilizers_countries %>%
   filter(country=="France") %>%
   select(
     country, Year, nutrient,
-    `Export Quantity (kt)`, `Import Quantity (kt)`, `Production (kt)`
+    `Export quantity (kt)`, `Import quantity (kt)`, `Production (kt)`
     ) %>%
   mutate(
-    `Export Quantity (kt)` = -`Export Quantity (kt)`
+    `Export quantity (kt)` = -`Export quantity (kt)`
   ) %>%
   gather(
     variable, value, -c(country, Year, nutrient)
@@ -1125,11 +1126,11 @@ f_prepare_balance <- function(dataset){
 
   data <- dataset %>%
     select(
-      country = Area, flows = Item, variable = Element, Unit, Y1961:Y2021
+      country = Area, flows = Item, variable = Element, Unit, Y1961:Y2022
     ) %>%
     #years in 1 column
     gather(
-      Year, value, Y1961:Y2021
+      Year, value, Y1961:Y2022
     ) %>%
     mutate(
       #gather units in variable name
@@ -1527,11 +1528,11 @@ rm(file_cropland_balance)
 
 # Food Supply 
 
-Food availability for 2010-2021. Data downloaded on FAOSTAT webpage Inputs -> [Availability](https://www.fao.org/faostat/en/#data/SUA){target="_blank"}, based on supply utilization accounts. We load and prepare the data.
+Food availability for 2010-2022. Data downloaded on FAOSTAT webpage Inputs -> [Availability](https://www.fao.org/faostat/en/#data/SUA){target="_blank"}, based on supply utilization accounts. We load and prepare the data.
 
 ```{r prepare_food_supply}
 #load original file
-file_food_supply_availability <- read.csv("source/FAO/food_supply/availability_2010_2021/Supply_Utilization_Accounts_Food_and_Diet_E_All_Data/Supply_Utilization_Accounts_Food_and_Diet_E_All_Data_NOFLAG.csv", check.names = FALSE)
+file_food_supply_availability <- read.csv("source/FAO/food_supply/availability_2010_2022/Supply_Utilization_Accounts_Food_and_Diet_E_All_Data_NOFLAG.csv", check.names = FALSE)
 #correct turkey and cote d'ivoire encoding
 file_food_supply_availability <- f_correct_encoding(file_food_supply_availability)
 
@@ -1546,7 +1547,7 @@ f_prepare_food_availability <- function(dataset){
     
     #selects variables of interest, rename them
     select(
-      country = Area, nutrient = Indicator, Unit, Y2010:Y2021
+      country = Area, nutrient = Indicator, Unit, Y2010:Y2022
       ) %>%
     
     filter(
@@ -1558,7 +1559,7 @@ f_prepare_food_availability <- function(dataset){
     
     #years in 1 column
     gather(
-      Year, value, Y2010:Y2021
+      Year, value, Y2010:Y2022
       ) %>%
     mutate(
       
@@ -1603,10 +1604,10 @@ data_food_supply_availability <- data_food_supply_availability %>%
   )
 ```
 
-Food balances for 2010-2021 and 1961-2010. Data downloaded on FAOSTAT webpage Inputs -> [Food balances (2010-)](https://www.fao.org/faostat/en/#data/FBS){target="_blank"} and [Food balances (-2013)](https://www.fao.org/faostat/en/#data/FBSH){target="_blank"}, based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
+Food balances for 2010-2022 and 1961-2010. Data downloaded on FAOSTAT webpage Inputs -> [Food balances (2010-)](https://www.fao.org/faostat/en/#data/FBS){target="_blank"} and [Food balances (-2013)](https://www.fao.org/faostat/en/#data/FBSH){target="_blank"}, based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
 
 
-Food balances for 2010-2021. Data downloaded on FAOSTAT webpage Inputs -> , based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
+Food balances for 2010-2022. Data downloaded on FAOSTAT webpage Inputs -> , based on supply utilization accounts. We load and prepare the data. One element reported in these food balances is the supply per capita.
 
 
 ```{r prepare_food_supply_balances}
@@ -1674,19 +1675,19 @@ f_food_supply_focus_N <- function(dataset){
   return(data)
 }
 
-#load original file 2010-2021
-file_food_supply_balance_2010_2021 <- read.csv("source/FAO/food_supply/balance_sheet_2010_2021/FoodBalanceSheets_E_All_Data/FoodBalanceSheets_E_All_Data_NOFLAG.csv", check.names = FALSE)
+#load original file 2010-2022
+file_food_supply_balance_2010_2022 <- read.csv("source/FAO/food_supply/balance_sheet_2010_2022/FoodBalanceSheets_E_All_Data_NOFLAG.csv", check.names = FALSE)
 #correct turkey and cote d'ivoire encoding
-file_food_supply_balance_2010_2021 <- f_correct_encoding(file_food_supply_balance_2010_2021)
+file_food_supply_balance_2010_2022 <- f_correct_encoding(file_food_supply_balance_2010_2022)
 
 #load original file 1961-2013
-file_food_supply_balance_1961_2013 <- read.csv("source/FAO/food_supply/balance_sheet_1961_2013/FoodBalanceSheetsHistoric_E_All_Data/FoodBalanceSheetsHistoric_E_All_Data_NOFLAG.csv", check.names = FALSE)
+file_food_supply_balance_1961_2013 <- read.csv("source/FAO/food_supply/balance_sheet_1961_2013/FoodBalanceSheetsHistoric_E_All_Data_NOFLAG.csv", check.names = FALSE)
 #correct turkey and cote d'ivoire encoding
 file_food_supply_balance_1961_2013 <- f_correct_encoding(file_food_supply_balance_1961_2013)
 
 
-data_food_supply_balance_2010_2021 <- f_prepare_food_supply(file_food_supply_balance_2010_2021, Y2010, Y2021) 
-data_food_supply_balance_2010_2021 <- f_food_supply_focus_N(data_food_supply_balance_2010_2021)
+data_food_supply_balance_2010_2022 <- f_prepare_food_supply(file_food_supply_balance_2010_2022, Y2010, Y2022) 
+data_food_supply_balance_2010_2022 <- f_food_supply_focus_N(data_food_supply_balance_2010_2022)
 
 data_food_supply_balance_1961_2013 <- f_prepare_food_supply(file_food_supply_balance_1961_2013, Y1961, Y2013) 
 data_food_supply_balance_1961_2013 <- f_food_supply_focus_N(data_food_supply_balance_1961_2013)
@@ -1700,12 +1701,12 @@ data_food_supply_balance_1961_2013 <- f_food_supply_focus_N(data_food_supply_bal
 ```{r}
 temp <- bind_rows(
   data_food_supply_balance_1961_2013 %>% mutate(source = "balance sheet 1961-2013"),
-  data_food_supply_balance_2010_2021 %>% mutate(source = "balance sheet 2010-2021"),
+  data_food_supply_balance_2010_2022 %>% mutate(source = "balance sheet 2010-2022"),
   data_food_supply_availability %>% mutate(source = "availability")
 )
 
 ggplot(temp %>% filter(country=="France")) +
-  #availability 2010-2021
+  #availability 2010-2022
   geom_line(
     aes(Year, `N supply (kg/cap/y)`, color=source)
     ) +
@@ -1726,7 +1727,7 @@ variable_filter_country <-
   filter_select(id="country_filter", label="select a country", sharedData=shared_data, group=~country)
 
 gg <- ggplot(shared_data) +
-  #availability 2010-2021
+  #availability 2010-2022
   geom_line(
     aes(Year, `N supply (kg/cap/y)`, color=source, group=country)
     ) +
@@ -1745,7 +1746,7 @@ bscols(
 
 ## Relative discrepancies
 
-Discrepancy between balance sheet 1961-2013 and 2010-2021 (during the 2010-2013 period)
+Discrepancy between balance sheet 1961-2013 and 2010-2022 (during the 2010-2013 period)
 
 ::: panel-tabset
 ### all countries
@@ -1759,7 +1760,7 @@ temp1 <- data_food_supply_balance_1961_2013 %>%
     country, Year, supply_old = `N supply (kg/cap/y)`
   )
 
-temp2 <- data_food_supply_balance_2010_2021 %>%
+temp2 <- data_food_supply_balance_2010_2022 %>%
   filter(
     Year %in% c(2010, 2011, 2012, 2013)
     ) %>%
@@ -1877,14 +1878,14 @@ f_graph_error_supply(">10 % higher")
 
 :::
 
-We chose to focus on food supply from balance sheets 1961-2013 and use only 2014-2021 for the 2010-2021 data
+We chose to focus on food supply from balance sheets 1961-2013 and use only 2014-2022 for the 2010-2022 data
 
 ```{r}
 #gather the different periods of food supply
 data_food_supply_countries <- 
   bind_rows(
     data_food_supply_balance_1961_2013,
-    data_food_supply_balance_2010_2021 %>% filter(Year>2013)
+    data_food_supply_balance_2010_2022 %>% filter(Year>2013)
   )
 
 #data for whole world
@@ -1902,7 +1903,7 @@ data_food_supply_countries <- data_food_supply_countries %>%
 
 
 ```{r remove_temporary_files_food_supply}
-rm(file_food_supply_availability, file_food_supply_balance_1961_2013, file_food_supply_balance_2010_2021)
+rm(file_food_supply_availability, file_food_supply_balance_1961_2013, file_food_supply_balance_2010_2022)
 rm(temp, temp1, temp2)
 rm(shared_data, variable_filter_country)
 ```
