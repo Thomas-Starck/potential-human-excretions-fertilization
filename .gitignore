@@ -14,3 +14,7 @@ renv/library/
 # Other potential temporary files
 *.log
 *.tmp
+
+
+# Ignore LibreOffice lock files
+.~lock.*.csv#

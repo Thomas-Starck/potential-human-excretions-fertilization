@@ -987,8 +987,6 @@ f_save_graph_pdf_png(
 # % manure applied to croplands 
 
 ```{r}
-recovery_human_excretions <- 0.8
-
 f_prepare_manure_to_croplands <- function(dataset){
   #prepare inputs file
   dataset <- dataset %>%
@@ -1027,7 +1025,16 @@ f_prepare_manure_to_croplands <- function(dataset){
   return(dataset)
   
 }
+```
 
+
+::: panel-tabset
+## 2018-2022
+
+### 80% recovery
+
+```{r}
+recovery_human_excretions <- 0.8
 temp_manure_to_croplands <- f_prepare_manure_to_croplands(FAO_countries_2018_2022)
 temp_manure_to_croplands_world <- f_prepare_manure_to_croplands(FAO_world_2018_2022)
 
@@ -1046,11 +1053,6 @@ temp_manure_to_croplands_world$input_flow <- factor(
   )
 )
 ```
-
-
-::: panel-tabset
-## 2018-2022
-
 
 ```{r}
 temp <- temp_manure_to_croplands %>% filter(country %in% countries_to_select_large)
@@ -1097,7 +1099,81 @@ gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 +
 gg
 
 f_save_graph_pdf_png(
-  gg, "graph/potential/", "share_excretions_vs_manure_on_croplands",
+  gg, "graph/potential/", "share_excretions_vs_manure_on_croplands_80perc",
+  resolution_dpi, grahps_height, grahps_width
+)
+```
+
+
+### 100% recovery
+
+```{r}
+recovery_human_excretions <- 1
+temp_manure_to_croplands <- f_prepare_manure_to_croplands(FAO_countries_2018_2022)
+temp_manure_to_croplands_world <- f_prepare_manure_to_croplands(FAO_world_2018_2022)
+
+temp_manure_to_croplands$input_flow <- factor(
+  temp_manure_to_croplands$input_flow,
+  levels = c(
+    "not applied to croplands",
+    "applied to croplands"
+  )
+)
+temp_manure_to_croplands_world$input_flow <- factor(
+  temp_manure_to_croplands_world$input_flow,
+  levels = c(
+    "not applied to croplands",
+    "applied to croplands"
+  )
+)
+```
+
+```{r}
+temp <- temp_manure_to_croplands %>% filter(country %in% countries_to_select_large)
+
+#Graphs
+gg1 <- f_graph_comparison_inputs_per_cap(
+  temp, value, `Manure applied to croplands`, `human excreta (ktN)` 
+  ) + labs(fill="manure excreted and...", subtitle = "human excreta compared to manure")
+gg1 <- f_graph_comparison_inputs_per_cap_add_world(
+  gg1,
+  temp_manure_to_croplands_world, value, `human excreta (ktN)` 
+) +
+  scale_fill_manual(
+    values = c("applied to croplands" = "#35b779",   
+               "not applied to croplands" = "#c4eed9")    
+    ) +
+  theme(legend.position = c(.3, .51))
+gg1
+
+gg2 <- f_graph_potential_percent(
+  temp %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excreta % of manure applied to croplands`, `Manure applied to croplands`
+  ) + 
+  labs(subtitle = "excretions as % of manure applied to cropland") +
+  coord_cartesian(
+      xlim = c(0, 3.2)
+      ) 
+gg2 <- f_graph_potential_percent_add_world(
+  gg2,
+   temp_manure_to_croplands_world %>% select(-c(value, input_flow)) %>% distinct(), 
+  `human excreta % of manure applied to croplands`
+) +
+  scale_x_continuous(
+      labels=scales::percent,
+      breaks=seq(0, 10, .5),
+      minor_breaks = seq(0, 10, .1)
+      ) 
+
+gg <- gg1 + theme(axis.text.y = element_blank()) + gg2 + 
+  plot_annotation(
+    title = "human excreta compared to manure excreted and applied to croplands",
+    caption = Source
+    )
+gg
+
+f_save_graph_pdf_png(
+  gg, "graph/potential/", "share_excretions_vs_manure_on_croplands_100perc",
   resolution_dpi, grahps_height, grahps_width
 )
 ```
