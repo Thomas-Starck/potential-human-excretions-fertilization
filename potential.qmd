@@ -221,7 +221,7 @@ f_graph_countries_bar <- function(dataset, variable){
       vjust=-0.5, fontface="bold.italic"
       ) +
     
-    #wolrd ba and print % 
+    #world ba and print % 
     annotate(
       geom="text", x="World", y= FAO_world_2018_2022 %>% pull({{ variable }}), 
       label = paste0(round(FAO_world_2018_2022 %>% pull({{ variable }})*100), "%"),
@@ -607,7 +607,7 @@ f_graph_manure_applied_losses <- function(dataset, dataset_world, countries_to_s
       hjust=0, fontface="italic", size=3
       ) +
     
-    #wolrd
+    #world
     geom_col(
       data = dataset_world %>% filter(subgroup != "Amount excreted in manure"),
       aes(subgroup_value, country, fill=subgroup),

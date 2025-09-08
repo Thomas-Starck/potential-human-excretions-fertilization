@@ -18,3 +18,4 @@ renv/library/
 
 # Ignore LibreOffice lock files
 .~lock.*.csv#
+**/*.quarto_ipynb

@@ -20,7 +20,7 @@ theme_set(
   theme(
     panel.grid.major.y = element_line(), #no vertical lines by default
     #text = element_text(family = "Times New Roman"), #default font
-    plot.title = element_text(face="bold"), #graphs titles in bolds
+    plot.title = element_text(face="bold"), #graphs titles in bold
     )
   )
 
@@ -85,7 +85,7 @@ Data downloaded on FAOSTAT webpage Inputs -> [Livestock manure](https://www.fao.
 ```{r prepare_manure}
 #load original file
 file_manure <- read.csv("source/FAO/manure/Environment_LivestockManure_E_All_Data/Environment_LivestockManure_E_All_Data_NOFLAG.csv", check.names = FALSE)
-#correct Turjey and Cote d'Ivoire encoding
+#correct Turkey and Côte d'Ivoire encoding
 file_manure <- f_correct_encoding(file_manure)
 
 #transform and prepare data
@@ -129,7 +129,7 @@ f_prepare_manure <- function(dataset){
           )
         )
       ) %>%
-    #change the numerical vallues accordingly
+    #change the numerical values accordingly
     mutate(
       value = value/10^6
       )
@@ -165,13 +165,13 @@ f_graph_manure_comparison <- function(
       aes(Year, value, fill=variable),
       alpha=.6
       ) +
-    #total catogery in line
+    #total category in line
     geom_line(
       data = temp %>% filter(variable == variable_total),
       aes(Year, value, color=variable),
       linewidth=1
       ) +
-    #line total cateogry in black
+    #line total category in black
     scale_color_manual(
       values="black"
       ) +
@@ -525,13 +525,13 @@ f_graph_livestock_comparison <- function(
       aes(Year, value, fill=species),
       alpha=.6
       ) +
-    #total catogery in line
+    #total category in line
     geom_line(
       data = temp %>% filter(species == species_total),
       aes(Year, value, color=species_total),
       linewidth=1
       ) +
-    #line total cateogry in black
+    #line total category in black
     scale_color_manual(
       values="black"
       ) +
@@ -539,7 +539,7 @@ f_graph_livestock_comparison <- function(
     scale_y_continuous(
       labels = scales::label_number(drop0trailing = TRUE)
       ) +
-    #labes
+    #labels
     labs(
       color="", x="", y="ktN excreted",
       fill="subgroups",
@@ -803,13 +803,13 @@ f_graph_ruminants <- function(
       aes(Year, value, fill=variable),
       alpha=.6
       ) +
-    #total catogery in line
+    #total category in line
     geom_line(
       data = temp %>% filter(variable == variable_total),
       aes(Year, value, color=variable),
       linewidth=1
       ) +
-    #line total cateogry in black
+    #line total category in black
     scale_color_manual(
       values="black"
       ) +
@@ -1866,7 +1866,7 @@ f_graph_error_supply("0 to 5 % higher")
 f_graph_error_supply("5 to 10 % higher")
 ```
 
-#### 5 to 10 % higher
+#### >10 %
 
 ```{r}
 f_graph_error_supply(">10 % higher")

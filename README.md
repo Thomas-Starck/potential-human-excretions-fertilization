@@ -6,7 +6,7 @@ Associated with a DOI on Zenodo repository https://doi.org/10.5281/zenodo.145910
 
 See results in a interactive website on https://thomas-starck.github.io/potential-human-excretions-fertilization/
 
-Supporting results presented in Chapter 5 of the thesis "Towards a circular management of nitrogen and phosphorus in human excreta: current state, global agricultural potential, and spatial constraint in France", https://theses.fr/s297415
+Supporting results presented in Chapter 5 of the thesis "Towards a circular management of nitrogen and phosphorus in human excreta: current state, global agricultural potential, and spatial constraint in France" (see https://hal.science/tel-04727806 and https://theses.fr/2024ENPC0020 ) 
 
 # Prerequisites
 
@@ -25,5 +25,5 @@ Supporting results presented in Chapter 5 of the thesis "Towards a circular mana
 
 ## then run the code 
 - then open potential-human-excretions-fertilization.Rproj in Rstudio
-- in console, run renv::restore (to restore project libraries)
+- in console, run renv::activate() then renv::restore() (to restore project libraries)
 - in terminal, run quarto render (to run the full project)
